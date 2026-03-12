@@ -1,0 +1,94 @@
+<!-- snippets/subscription-widget-compact.liquid -->
+{% comment %}
+  Compact widget style - exact replica of React renderOptions compact case
+{% endcomment %}
+
+<div style="display: flex; flex-direction: column; gap: {{ widget_customization.optionSpacing | default: 0 }}px;" role="radiogroup" aria-label="Purchase options">
+  {% for opt in productPreview.options %}
+    <div style="border-radius: {{ widget_customization.borderRadius | default: 8 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 8px;">
+      <!-- OptionRow equivalent -->
+      <div style="padding: 8px 0;">
+        <label style="display: flex; align-items: center; justify-content: space-between; width: 100%; cursor: pointer;">
+          <!-- LEFT SIDE -->
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <input
+              type="radio"
+              name="purchase-option"
+              value="{{ opt.id }}"
+              style="margin-top: 2px; height: 16px; width: 16px; accent-color: {{ widget_customization.radioButtonColor | default: 'black' }};"
+            />
+            <div style="display: flex; flex-direction: column;">
+              <!-- PRIMARY CONTENT -->
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-size: {{ widget_customization.labelTextSize | default: 14 }}px; color: black;">
+                  {% if opt.badge %}
+                    {{ widget_labels.subscriptionPurchaseLabel | default: 'Subscribe & Save' }}
+                  {% else %}
+                    {{ widget_labels.oneTimePurchaseLabel | default: 'One-time purchase' }}
+                  {% endif %}
+                </span>
+                {% if opt.badge %}
+                  {% unless widget_customization.hideDiscountBadge %}
+                    {% if widget_labels.discountBadgeFormat %}
+                      {% assign selected_freq = frequency_options | where: 'value', '30' | first %}
+                      {% assign discount_percentage = selected_freq.discount | default: 10 %}
+                      <span style="display: inline-block; background-color: {{ widget_customization.discountBadgeColor | default: 'rgb(220 252 231)' }}; color: {{ widget_customization.discountBadgeTextColor | default: 'rgb(22 101 52)' }}; font-size: 11px; font-weight: 500; padding: 2px 10px; border-radius: 12px; margin-top: 4px;">
+                        {% comment %} {{ widget_labels.discountBadgeFormat | replace: '{{selectedDiscountPercentage}}', discount_percentage | append: '%' }} {% endcomment %}
+                      </span>
+                    {% endif %}
+                  {% endunless %}
+                {% endif %}
+              </div>
+
+              <!-- HELP TEXT -->
+              {% if opt.id == 'oneTime' and widget_labels.oneTimePurchaseSubtext %}
+                <span style="font-size: 12px; margin-top: 2px; color: rgb(107 114 128); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {{ widget_labels.oneTimePurchaseSubtext }}
+                </span>
+              {% elsif opt.id == 'subscribe' and widget_labels.subscriptionPurchaseSubtext %}
+                <span style="font-size: 12px; margin-top: 2px; color: rgb(107 114 128); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {{ widget_labels.subscriptionPurchaseSubtext }}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- RIGHT SIDE -->
+          {% if opt.id == 'subscribe' %}
+            <div style="margin-left: 16px; display: flex; flex-direction: column; align-items: flex-end;">
+              <span style="font-size: 12px; text-decoration: line-through; color: {{ widget_customization.comparePriceColor | default: 'rgb(107 114 128)' }};">
+                {{ shop.currency }}{{ opt.originalPrice }}
+              </span>
+              {% assign selected_freq = frequency_options | where: 'value', '30' | first %}
+              {% assign discounted_price = opt.originalPrice | times: (1 - (selected_freq.discount | default: 10) / 100) %}
+              <span style="font-size: 14px; font-weight: 600; color: {{ widget_customization.priceTextColor | default: 'black' }};">
+                {{ shop.currency }}{{ discounted_price | money_without_currency }}
+              </span>
+            </div>
+          {% else %}
+            <div style="margin-left: 16px; display: flex; flex-direction: column; align-items: flex-end;">
+              <span style="font-size: 14px; font-weight: 600; color: {{ widget_customization.priceTextColor | default: 'black' }};">
+                {{ widget_labels.oneTimePriceFormat | default: '{{price}}' | replace: '{{price}}', opt.price | replace: '{{currency}}', shop.currency }}
+              </span>
+            </div>
+          {% endif %}
+        </label>
+      </div>
+
+      <!-- Show frequency selector when subscribe is active or keepFrequencyVisible -->
+      {% if opt.id == 'subscribe' %}
+        <!-- SelectDropdown equivalent -->
+        <div style="padding-left: 28px;">
+          <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px;">
+            {{ widget_labels.deliveryFrequencyLabel | default: 'Delivery every' }}
+          </label>
+          <select style="margin-top: 4px; display: block; width: 100%; border-radius: 6px; padding: 8px 12px; border: 1px solid #d1d5db;">
+            {% for freq in frequency_options %}
+              <option value="{{ freq.value }}">{{ freq.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>

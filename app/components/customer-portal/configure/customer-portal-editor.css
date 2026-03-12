@@ -1,0 +1,75 @@
+/* Customer Portal CSS Editor Styles */
+.customer-portal-css-editor {
+  /* Rounded corners and border for the editor container */
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  padding: 0;
+  margin-bottom: 20px;
+}
+
+/* Ensure the editor container has proper height */
+.customer-portal-css-editor-container {
+  height: 700px !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Override Monaco editor styles */
+.customer-portal-css-editor .monaco-editor,
+.customer-portal-css-editor .monaco-editor-background,
+.customer-portal-css-editor .monaco-editor .inputarea.ime-input,
+.customer-portal-css-editor .monaco-editor .margin {
+  background-color: #f9fafb !important; /* Light gray background matching the image */
+}
+
+/* Ensure the editor takes full width */
+.customer-portal-css-editor .monaco-editor {
+  width: 100% !important;
+  padding-left: 8px;
+}
+
+/* Fix for editor not loading properly */
+.customer-portal-css-editor .monaco-editor .overflow-guard {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Line number styling */
+.customer-portal-css-editor .monaco-editor .margin-view-overlays .line-numbers {
+  color: #637381;
+}
+
+/* Ensure editor content has proper padding */
+.customer-portal-css-editor .monaco-editor .view-lines {
+  padding-left: 8px;
+}
+
+/* Line number column styling */
+.customer-portal-css-editor .monaco-editor .margin {
+  border-right: 1px solid #e6e6e6;
+  background-color: #f4f6f8 !important;
+}
+
+/* Ensure line numbers are visible */
+.customer-portal-css-editor .monaco-editor .line-numbers {
+  visibility: visible !important;
+}
+
+/* Line number row highlight */
+.customer-portal-css-editor .monaco-editor .current-line {
+  border: none !important;
+  background-color: rgba(65, 132, 228, 0.05) !important;
+}
+
+/* Add some spacing to the top line */
+.customer-portal-css-editor .monaco-editor .view-lines > div:first-child {
+  margin-top: 5px;
+}
+
+/* Hide unnecessary scrollbars when not needed */
+.customer-portal-css-editor .monaco-scrollable-element > .scrollbar.vertical {
+  visibility: auto;
+}

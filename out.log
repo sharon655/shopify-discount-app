@@ -1,0 +1,865 @@
+
+> dev
+> shopify app dev --verbose
+
+2026-03-03T05:28:59.168Z: Running command app dev
+2026-03-03T05:28:59.183Z: Running system process:
+  · Command: C:\Program Files\nodejs\node.exe C:\Users\VA-007\AppData\Roaming\npm\node_modules\@shopify\cli\bin\run.js notifications list --ignore-errors
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:28:59.199Z: Notifications to show: 0
+2026-03-03T05:28:59.237Z: Reading cached app information for directory D:/projects/Shopify-Custom-App/demo...
+2026-03-03T05:28:59.238Z: Reading the content of file at shopify.app.toml...
+2026-03-03T05:28:59.243Z: Reading the content of file at shopify.app.toml...
+2026-03-03T05:28:59.246Z: Ensuring that the user is authenticated with the App Management API with the following scopes:
+[]
+
+2026-03-03T05:28:59.251Z: Getting session store...
+2026-03-03T05:28:59.254Z: Validating existing session against the scopes:
+[
+  "openid",
+  "https://api.shopify.com/auth/shop.admin.graphql",
+  "https://api.shopify.com/auth/shop.admin.themes",
+  "https://api.shopify.com/auth/partners.collaborator-relationships.readonly",
+  "https://api.shopify.com/auth/shop.storefront-renderer.devtools",
+  "https://api.shopify.com/auth/partners.app.cli.access",
+  "https://api.shopify.com/auth/destinations.readonly",
+  "https://api.shopify.com/auth/organization.store-management",
+  "https://api.shopify.com/auth/organization.on-demand-user-access",
+  "https://api.shopify.com/auth/organization.apps.manage"
+]
+For applications:
+{
+  "appManagementApi": {
+    "scopes": []
+  },
+  "businessPlatformApi": {
+    "scopes": []
+  }
+}
+
+2026-03-03T05:28:59.254Z: - Token validation -> It's expired: false
+2026-03-03T05:28:59.257Z: Sending "BusinessPlatform" GraphQL request:
+  query UserInfo {
+  currentUserAccount {
+    uuid
+    email
+    organizations(first: 2) {
+      nodes {
+        name
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://destinations.shopifysvc.com/destinations/api/2020-07/graphql
+2026-03-03T05:28:59.302Z: Sending "App Management" GraphQL request:
+  query ActiveAppReleaseFromApiKey($apiKey: String!) {
+  app: appByKey(key: $apiKey) {
+    ...AppVersionInfo
+    __typename
+  }
+}
+
+fragment ReleasedAppModule on AppModule {
+  uuid
+  userIdentifier
+  handle
+  config
+  target
+  specification {
+    identifier
+    externalIdentifier
+    name
+    managementExperience
+  }
+}
+
+fragment AppVersionInfo on App {
+  id
+  key
+  organizationId
+  activeRoot {
+    clientCredentials {
+      secrets {
+        key
+      }
+    }
+  }
+  activeRelease {
+    id
+    version {
+      name
+      appModules {
+        ...ReleasedAppModule
+      }
+    }
+  }
+}
+
+With variables:
+{
+  "apiKey": "*****"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://app.shopify.com/app_management/unstable/graphql.json
+2026-03-03T05:28:59.921Z: Request to https://app.shopify.com/app_management/unstable/graphql.json completed in 618 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=212, verdict_flag_enabled;desc="count=5";dur=0.842, _y;desc="48578fa6-9785-4ab1-9ac5-776900cf82cf", _s;desc="dbe810f7-bbfa-41d8-9bd5-6b61c45d8c83", cfRequestDuration;dur=542.999983
+ - x-request-id: 7f5ea0d6-7232-489b-b92c-60bf96a4ce86-1772515739
+    
+2026-03-03T05:28:59.938Z: Sending "BusinessPlatform" GraphQL request:
+  query FindOrganizations($organizationId: OrganizationID!) {
+  currentUserAccount {
+    organization(id: $organizationId) {
+      id
+      name
+      __typename
+    }
+    __typename
+  }
+}
+
+With variables:
+{
+  "organizationId": "Z2lkOi8vb3JnYW5pemF0aW9uL09yZ2FuaXphdGlvbi8xODAwNDEyNzk="
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://destinations.shopifysvc.com/destinations/api/2020-07/graphql
+2026-03-03T05:28:59.968Z: Sending "App Management" GraphQL request:
+  query fetchSpecifications($organizationId: ID!) {
+  specifications(organizationId: $organizationId) {
+    name
+    identifier
+    externalIdentifier
+    features
+    uidStrategy {
+      appModuleLimit
+      isClientProvided
+      __typename
+    }
+    validationSchema {
+      jsonSchema
+      __typename
+    }
+    __typename
+  }
+}
+
+With variables:
+{
+  "organizationId": "gid://shopify/Organization/180041279"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://app.shopify.com/app_management/unstable/graphql.json
+2026-03-03T05:29:01.548Z: Request to https://app.shopify.com/app_management/unstable/graphql.json completed in 1579 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=180, verdict_flag_enabled;desc="count=8";dur=0.676, _y;desc="d67467e3-39ba-43f7-8118-eafefdd703b7", _s;desc="d69f640d-0336-4282-b361-b9d4a8ed308c", cfRequestDuration;dur=520.999908
+ - x-request-id: e6cf5b0b-1924-4a12-809c-ff0c77555b1e-1772515741
+    
+2026-03-03T05:29:01.577Z: The following extension specifications were defined locally but not found in the remote specifications: tax_calculation
+2026-03-03T05:29:01.577Z: The following extension specifications were found in the remote specifications but not defined locally: admin_app, app_link, app_nav_item, bulk_action, checkout_script_tag, flow_action_definition, flow_trigger_definition, flow_trigger_discovery_webhook, manage_marketplaces, marketing_action, marketing_activity_extension, merchandising_create_publication, merchandising_fulfillment_variant_details, ping_message_callback, pos_link, product_configuration_link, resource_publication_settings, retail_cart_promotion, retail_product_recommendation, subscription_link
+2026-03-03T05:29:01.581Z: Reading the content of file at shopify.app.app-20.toml...
+2026-03-03T05:29:01.582Z: Reading the content of file at shopify.app.app.toml...
+2026-03-03T05:29:01.582Z: Reading the content of file at shopify.app.dev-discount.toml...
+2026-03-03T05:29:01.582Z: Reading the content of file at shopify.app.dummy.toml...
+2026-03-03T05:29:01.582Z: Reading the content of file at shopify.app.pragmatic-tax-app.toml...
+2026-03-03T05:29:01.587Z: Reading the content of file at .gitignore...
+2026-03-03T05:29:01.592Z: Reading the .env file at .env
+2026-03-03T05:29:01.592Z: Reading the content of file at .env...
+2026-03-03T05:29:02.375Z: Reading the content of file at extensions/discount-function/shopify.extension.toml...
+2026-03-03T05:29:02.376Z: Reading the content of file at extensions/discount-function/shopify.extension.toml...
+2026-03-03T05:29:02.379Z: Reading the content of file at package.json...
+2026-03-03T05:29:02.379Z: Reading the content of file at package.json...
+2026-03-03T05:29:02.420Z: Running system process:
+  · Command: npm prefix
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:29:02.801Z: Obtaining the dependency manager in directory D:\projects\Shopify-Custom-App\demo...
+2026-03-03T05:29:02.802Z: Reading the content of file at package.json...
+2026-03-03T05:29:02.803Z: Reading the content of file at .shopify/project.json...
+2026-03-03T05:29:02.809Z: Reading the content of file at shopify.web.toml...
+2026-03-03T05:29:02.813Z: Notifications to show: 0
+2026-03-03T05:29:02.815Z: Reading cached app information for directory D:/projects/Shopify-Custom-App/demo...
+2026-03-03T05:29:02.816Z: Storing app information for directory D:/projects/Shopify-Custom-App/demo:{
+  "appId": "c10d6b5feda86ab7df32b9440f1d2320",
+  "title": "app",
+  "directory": "D:/projects/Shopify-Custom-App/demo",
+  "orgId": "180041279"
+}
+2026-03-03T05:29:02.824Z: Sending "BusinessPlatform" GraphQL request:
+  query FetchDevStoreByDomain($domain: String) {
+  organization {
+    id
+    name
+    accessibleShops(
+      filters: {field: STORE_TYPE, operator: EQUALS, value: "app_development"}
+      search: $domain
+    ) {
+      edges {
+        node {
+          id
+          externalId
+          name
+          storeType
+          primaryDomain
+          shortName
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    currentUser {
+      organizationPermissions
+      __typename
+    }
+    __typename
+  }
+}
+
+With variables:
+{
+  "domain": "juice-99.myshopify.com"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://destinations.shopifysvc.com/organizations/api/unstable/organization/180041279/graphql
+2026-03-03T05:29:03.428Z: Request to https://destinations.shopifysvc.com/organizations/api/unstable/organization/180041279/graphql completed in 604 ms
+With response headers:
+ - cache-control: max-age=0, private, must-revalidate
+ - content-type: application/json; charset=utf-8
+ - etag: W/"c2a1d1152ff22e0c29bdbf2b1fb9ce9d"
+ - server-timing: processing;dur=113, socket_queue;dur=1.64, util;dur=0.0, cfRequestDuration;dur=381.999969
+ - x-request-id: e0f3d1c3-b6d5-45be-bc75-cabc1005ba1a-1772515743
+    
+2026-03-03T05:29:03.430Z: Getting a random port...
+2026-03-03T05:29:03.434Z: Random port obtained: 59596
+2026-03-03T05:29:03.478Z: cloudflared already installed, skipping
+2026-03-03T05:29:03.487Z: Running system process:
+  · Command: C:/Users/VA-007/AppData/Roaming/npm/node_modules/@shopify/cli/bin/cloudflared.exe tunnel --url http://localhost:59596 --no-autoupdate
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:29:03.517Z: 2026-03-03T05:29:03Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
+2026-03-03T05:29:03Z INF Requesting new quick Tunnel on trycloudflare.com...
+
+2026-03-03T05:29:03.519Z: Sending "App Management" GraphQL request:
+  query ActiveAppReleaseFromApiKey($apiKey: String!) {
+  app: appByKey(key: $apiKey) {
+    ...AppVersionInfo
+    __typename
+  }
+}
+
+fragment ReleasedAppModule on AppModule {
+  uuid
+  userIdentifier
+  handle
+  config
+  target
+  specification {
+    identifier
+    externalIdentifier
+    name
+    managementExperience
+  }
+}
+
+fragment AppVersionInfo on App {
+  id
+  key
+  organizationId
+  activeRoot {
+    clientCredentials {
+      secrets {
+        key
+      }
+    }
+  }
+  activeRelease {
+    id
+    version {
+      name
+      appModules {
+        ...ReleasedAppModule
+      }
+    }
+  }
+}
+
+With variables:
+{
+  "apiKey": "*****"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://app.shopify.com/app_management/unstable/graphql.json
+2026-03-03T05:29:04.051Z: Request to https://app.shopify.com/app_management/unstable/graphql.json completed in 532 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=150, verdict_flag_enabled;desc="count=5";dur=1.065, _y;desc="c3aa95ca-4c21-4fe8-84f8-5e6821ba1764", _s;desc="c9dce061-8f80-4ef6-b5a0-b776515437cc", cfRequestDuration;dur=487.999916
+ - x-request-id: 9eb65153-6bdd-4c26-9160-3e5d7705afd4-1772515743
+    
+2026-03-03T05:29:04.065Z: Reading cached app information for directory D:/projects/Shopify-Custom-App/demo...
+╭─ info ───────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Using shopify.app.toml for default values:                                  │
+│                                                                              │
+│    • Org:             sagar                                                  │
+│    • App:             app                                                    │
+│    • Dev store:       juice-99.myshopify.com                                 │
+│    • Update URLs:     Yes                                                    │
+│                                                                              │
+│   You can pass `--reset` to your command to reset your app configuration.    │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+2026-03-03T05:29:04.116Z: Port 3457 is free
+2026-03-03T05:29:04.118Z: Polling tunnel status for cloudflare (attempt 0): starting
+2026-03-03T05:29:04.119Z: Getting a random port...
+2026-03-03T05:29:04.120Z: Random port obtained: 59607
+2026-03-03T05:29:04.621Z: Polling tunnel status for cloudflare (attempt 1): starting
+2026-03-03T05:29:05.135Z: Polling tunnel status for cloudflare (attempt 2): starting
+2026-03-03T05:29:05.647Z: Polling tunnel status for cloudflare (attempt 3): starting
+2026-03-03T05:29:06.158Z: Polling tunnel status for cloudflare (attempt 4): starting
+2026-03-03T05:29:06.672Z: Polling tunnel status for cloudflare (attempt 5): starting
+2026-03-03T05:29:07.182Z: Polling tunnel status for cloudflare (attempt 6): starting
+2026-03-03T05:29:07.696Z: Polling tunnel status for cloudflare (attempt 7): starting
+2026-03-03T05:29:08.036Z: 2026-03-03T05:29:08Z INF +--------------------------------------------------------------------------------------------+
+2026-03-03T05:29:08Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+2026-03-03T05:29:08Z INF |  https://touch-helps-seemed-diabetes.trycloudflare.com                                     |
+2026-03-03T05:29:08Z INF +--------------------------------------------------------------------------------------------+
+
+2026-03-03T05:29:08.037Z: 2026-03-03T05:29:08Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp]
+
+2026-03-03T05:29:08.038Z: 2026-03-03T05:29:08Z INF Version 2024.8.2
+2026-03-03T05:29:08Z INF GOOS: windows, GOVersion: go1.22.2-devel-cf, GoArch: amd64
+2026-03-03T05:29:08Z INF Settings: map[ha-connections:1 no-autoupdate:true protocol:quic url:http://localhost:59596]
+
+2026-03-03T05:29:08.040Z: 2026-03-03T05:29:08Z INF cloudflared will not automatically update on Windows systems.
+
+2026-03-03T05:29:08.041Z: 2026-03-03T05:29:08Z INF Generated Connector ID: 5cf4358a-e78d-4629-a244-9afb2330656c
+
+2026-03-03T05:29:08.053Z: 2026-03-03T05:29:08Z INF Initial protocol quic
+
+2026-03-03T05:29:08.055Z: 2026-03-03T05:29:08Z INF ICMP proxy will use 132.148.0.126 as source for IPv4
+
+2026-03-03T05:29:08.062Z: 2026-03-03T05:29:08Z INF ICMP proxy will use fe80::4bef:b02e:af99:e51f in zone Ethernet as source for IPv6
+
+2026-03-03T05:29:08.073Z: 2026-03-03T05:29:08Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+
+2026-03-03T05:29:08.074Z: 2026-03-03T05:29:08Z INF Starting metrics server on 127.0.0.1:59655/metrics
+
+2026-03-03T05:29:08.207Z: Polling tunnel status for cloudflare (attempt 8): starting
+2026-03-03T05:29:08.633Z: 2026-03-03T05:29:08Z WRN Your version 2024.8.2 is outdated. We recommend upgrading it to 2026.2.0
+
+2026-03-03T05:29:08.720Z: Polling tunnel status for cloudflare (attempt 9): starting
+2026-03-03T05:29:08.842Z: 2026-03-03T05:29:08Z INF Registered tunnel connection connIndex=0 connection=ceef7127-b51b-4361-a75a-1848e0ab2d5a event=0 ip=198.41.200.43 location=bom08 protocol=quic
+
+2026-03-03T05:29:09.231Z: Polling tunnel status for cloudflare (attempt 10): connected
+2026-03-03T05:29:09.232Z: Reading cached app information for directory D:/projects/Shopify-Custom-App/demo...
+2026-03-03T05:29:09.278Z: Sending "App Management" GraphQL request:
+  query ActiveAppReleaseFromApiKey($apiKey: String!) {
+  app: appByKey(key: $apiKey) {
+    ...AppVersionInfo
+    __typename
+  }
+}
+
+fragment ReleasedAppModule on AppModule {
+  uuid
+  userIdentifier
+  handle
+  config
+  target
+  specification {
+    identifier
+    externalIdentifier
+    name
+    managementExperience
+  }
+}
+
+fragment AppVersionInfo on App {
+  id
+  key
+  organizationId
+  activeRoot {
+    clientCredentials {
+      secrets {
+        key
+      }
+    }
+  }
+  activeRelease {
+    id
+    version {
+      name
+      appModules {
+        ...ReleasedAppModule
+      }
+    }
+  }
+}
+
+With variables:
+{
+  "apiKey": "*****"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://app.shopify.com/app_management/unstable/graphql.json
+2026-03-03T05:29:09.811Z: Request to https://app.shopify.com/app_management/unstable/graphql.json completed in 532 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=149, verdict_flag_enabled;desc="count=5";dur=1.01, _y;desc="f45b4e15-964f-4fbe-80b8-2e4a109ccc05", _s;desc="28297188-566a-42d3-89d8-d0cf0635892e", cfRequestDuration;dur=475.999832
+ - x-request-id: c259375b-399c-47df-a328-24497f92fce7-1772515749
+    
+2026-03-03T05:29:09.830Z: Reading cached app information for directory D:/projects/Shopify-Custom-App/demo...
+2026-03-03T05:29:09.832Z: Reading the content of file at shopify.app.toml...
+2026-03-03T05:29:09.838Z: Reading the content of file at shopify.app.toml...
+2026-03-03T05:29:09.861Z: Reading the content of file at shopify.app.app-20.toml...
+2026-03-03T05:29:09.861Z: Reading the content of file at shopify.app.app.toml...
+2026-03-03T05:29:09.861Z: Reading the content of file at shopify.app.dev-discount.toml...
+2026-03-03T05:29:09.862Z: Reading the content of file at shopify.app.dummy.toml...
+2026-03-03T05:29:09.862Z: Reading the content of file at shopify.app.pragmatic-tax-app.toml...
+2026-03-03T05:29:09.865Z: Reading the content of file at .gitignore...
+2026-03-03T05:29:09.867Z: Reading the .env file at .env
+2026-03-03T05:29:09.868Z: Reading the content of file at .env...
+2026-03-03T05:29:09.875Z: Reading the content of file at extensions/discount-function/shopify.extension.toml...
+2026-03-03T05:29:09.877Z: Reading the content of file at extensions/discount-function/shopify.extension.toml...
+2026-03-03T05:29:09.879Z: Reading the content of file at .shopify/project.json...
+2026-03-03T05:29:09.886Z: Reading the content of file at shopify.web.toml...
+2026-03-03T05:29:09.889Z: Notifications to show: 0
+2026-03-03T05:29:09.892Z: Getting a random port...
+2026-03-03T05:29:09.894Z: Random port obtained: 59680
+2026-03-03T05:29:09.894Z: Storing app information for directory D:/projects/Shopify-Custom-App/demo:{
+  "directory": "D:/projects/Shopify-Custom-App/demo",
+  "previousAppId": "c10d6b5feda86ab7df32b9440f1d2320"
+}
+2026-03-03T05:29:10.023Z: Running system process:
+  · Command: npm prefix
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:29:10.421Z: Obtaining the dependency manager in directory D:\projects\Shopify-Custom-App\demo...
+2026-03-03T05:29:11.166Z: Request to https://monorail-edge.shopifysvc.com/v1/produce completed in 346 ms
+With response headers:
+ - x-request-id: f709c31e-ecd1-4f43-ae0d-d170da63099a
+    
+2026-03-03T05:29:11.166Z: Analytics event sent: {
+  "command": "app dev",
+  "time_start": 1772515739169,
+  "time_end": 1772515749959,
+  "total_time": 10790,
+  "success": true,
+  "cli_version": "3.84.1",
+  "ruby_version": "",
+  "node_version": "22.18.0",
+  "is_employee": false,
+  "uname": "windows amd64",
+  "env_ci": false,
+  "env_plugin_installed_any_custom": false,
+  "env_plugin_installed_shopify": "[\"@shopify/cli\"]",
+  "env_shell": "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+  "env_device_id": "e1e15d695ab872121a9b2d234384f8f6b17c3c71",
+  "env_cloud": "localhost",
+  "env_package_manager": "npm",
+  "env_is_global": true,
+  "env_auth_method": "device_auth",
+  "env_is_wsl": false,
+  "env_build_repository": "Shopify/cli",
+  "cmd_app_warning_api_key_deprecation_displayed": false,
+  "cmd_app_all_configs_any": true,
+  "cmd_app_all_configs_clients": "{\"shopify.app.app-20.toml\":\"b2f695311778c104ba4968dc6efcc827\",\"shopify.app.app.toml\":\"04018642d666c746060158902c582ed2\",\"shopify.app.dev-discount.toml\":\"061b72e98c8e6aa4b3a1ebedfd18232b\",\"shopify.app.dummy.toml\":\"ca82257deebdb63d918a8ed488dbfc38\",\"shopify.app.pragmatic-tax-app.toml\":\"e3ff30edbacaeffb5eddc44e93c8d0f0\",\"shopify.app.toml\":\"c10d6b5feda86ab7df32b9440f1d2320\"}",
+  "cmd_app_linked_config_used": true,
+  "cmd_app_linked_config_name": "shopify.app.toml",
+  "cmd_app_linked_config_git_tracked": true,
+  "cmd_app_linked_config_source": "flag",
+  "cmd_app_linked_config_uses_cli_managed_urls": true,
+  "project_type": "node",
+  "app_extensions_any": true,
+  "app_extensions_breakdown": "{\"function\":1}",
+  "app_extensions_count": 1,
+  "app_extensions_custom_layout": false,
+  "app_extensions_function_any": true,
+  "app_extensions_function_count": 1,
+  "app_extensions_theme_any": false,
+  "app_extensions_theme_count": 0,
+  "app_extensions_ui_any": false,
+  "app_extensions_ui_count": 0,
+  "app_name_hash": "7d1043473d55bfa90e8530d35801d4e381bc69f0",
+  "app_path_hash": "555564b0f703212bcdd6e0fd13e2ba13e522ff9a",
+  "app_scopes": "[\"read_discounts\",\"read_orders\",\"write_discounts\",\"write_orders\"]",
+  "app_web_backend_any": true,
+  "app_web_backend_count": 1,
+  "app_web_custom_layout": true,
+  "app_web_framework": "remix",
+  "app_web_frontend_any": true,
+  "app_web_frontend_count": 1,
+  "env_package_manager_workspaces": true,
+  "business_platform_id": 180041279,
+  "api_key": "****",
+  "cmd_app_reset_used": false,
+  "store_fqdn_hash": "b56926cabbcfca6450656f0f79c4d115e5aa9e35",
+  "cmd_dev_tunnel_type": "auto",
+  "cmd_dev_urls_updated": true,
+  "cmd_app_dependency_installation_skipped": false,
+  "cmd_all_timing_network_ms": 3866,
+  "cmd_all_timing_prompts_ms": 0,
+  "cmd_all_launcher": "npm",
+  "cmd_all_topic": "app",
+  "cmd_all_plugin": "@shopify/app",
+  "cmd_all_verbose": true,
+  "cmd_all_path_override": true,
+  "cmd_all_path_override_hash": "555564b0f703212bcdd6e0fd13e2ba13e522ff9a",
+  "cmd_all_last_graphql_request_id": "c259375b-399c-47df-a328-24497f92fce7-1772515749",
+  "cmd_all_timing_active_ms": 6923,
+  "cmd_all_exit": "ok",
+  "user_id": "c8980b92-b8e8-4709-98cc-eba945e3a445",
+  "request_ids": [
+    "7f5ea0d6-7232-489b-b92c-60bf96a4ce86-1772515739",
+    "e6cf5b0b-1924-4a12-809c-ff0c77555b1e-1772515741",
+    "e0f3d1c3-b6d5-45be-bc75-cabc1005ba1a-1772515743",
+    "9eb65153-6bdd-4c26-9160-3e5d7705afd4-1772515743",
+    "c259375b-399c-47df-a328-24497f92fce7-1772515749"
+  ],
+  "args": "--verbose",
+  "app_name": "app",
+  "store_fqdn": "juice-99.myshopify.com",
+  "env_plugin_installed_all": "[\"@shopify/cli\"]",
+  "metadata": "{\"extraPublic\":{},\"extraSensitive\":{}}"
+}
+Running pre-dev command: "npx prisma generate"2026-03-03T05:29:11.229Z: Running system process:
+  · Command: npx prisma generate
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:29:11.230Z: Setting up GraphiQL HTTP server on port 3457...Preparing app preview on juice-99.myshopify.com2026-03-03T05:29:11.243Z: Setting up the UI extensions HTTP server...2026-03-03T05:29:11.245Z: Setting up the UI extensions Websocket server...2026-03-03T05:29:11.246Z: Setting up the UI extensions bundler and file watching...Proxy server started on port 59596 GraphiQL server started on port 34572026-03-03T05:29:11.269Z: Removing directory at .shopify/dev-bundle...
+2026-03-03T05:29:11.284Z: Creating directory at .shopify/dev-bundle...
+2026-03-03T05:29:11.294Z: Reading the content of file at node_modules/@shopify/shopify_function/package.json...
+Building function discount-function...Building GraphQL types...
+2026-03-03T05:29:11.336Z: Running system process:
+  · Command: npm exec -- graphql-code-generator --config package.json
+  · Working directory: D:/projects/Shopify-Custom-App/demo/extensions/discount-function
+
+prisma:cli:bin Failed to initialize the command state: Error: ENOENT: no such file or directory, open 'C:\Users\VA-007\AppData\Roaming\prisma-nodejs\Config\commands.json' +1561ms
+prisma:config:loadConfigFromFile Config file loaded in 407.61ms +1764ms
+prisma:config:loadConfigFromFile No config file found in the current working directory D:\projects\Shopify-Custom-App\demo +0ms
+prisma:getSchema prismaConfig null +413ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\schema.prisma +0ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\schema.prisma +0ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +0ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +0ms
+prisma:getConfig Using getConfig Wasm +2ms
+prisma:cli Failed to read schema information. Using default values: '{\n  "name": "GetConfigError"\n}' +21ms
+prisma:engines binaries to download schema-engine, libquery-engine +1991ms
+prisma:getSchema prismaConfig null +21ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\schema.prisma +1ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\schema.prisma +0ms
+prisma:getSchema prismaConfig null +0ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\schema.prisma +0ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\schema.prisma +0ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +1ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +0ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +0ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +0ms
+prisma:getConfig Using getConfig Wasm +4ms
+prisma:getConfig config data retrieved without errors in getConfig Wasm +4ms
+prisma:cli:checkpoint runCheckpointClientCheck(): Execution time for getting info: 31.885200000000168 ms +1ms
+prisma:cli:checkpoint runCheckpointClientCheck(): Execution time for "await checkpoint.check(data)": 70.70669999999973 ms +72ms
+Bundling JS function...
+2026-03-03T05:29:14.900Z: Generating dist/function.js using generated module:
+2026-03-03T05:29:14.900Z: 
+import __runFunction from "@shopify/shopify_function/run"
+
+import { cartLinesDiscountsGenerateRun as runCartLinesDiscountsGenerateRun } from "user-function"
+export function cartLinesDiscountsGenerateRun() { return __runFunction(runCartLinesDiscountsGenerateRun) }
+
+import { cartDeliveryOptionsDiscountsGenerateRun as runCartDeliveryOptionsDiscountsGenerateRun } from "user-function"
+export function cartDeliveryOptionsDiscountsGenerateRun() { return __runFunction(runCartDeliveryOptionsDiscountsGenerateRun) }
+prisma:loadEnv project root found at D:\projects\Shopify-Custom-App\demo\package.json +129ms
+prisma:getSchema prismaConfig null +2ms
+prisma:tryLoadEnv Environment variables loaded from D:\projects\Shopify-Custom-App\demo\.env +1ms
+Environment variables loaded from .env
+prisma:getSchema prismaConfig null +8ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\schema.prisma +0ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\schema.prisma +1ms
+prisma:getSchema Checking existence of D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +1ms
+prisma:getSchema Reading schema from single file D:\projects\Shopify-Custom-App\demo\prisma\schema.prisma +0ms
+Prisma schema loaded from prisma\schema.prisma
+prisma:getConfig Using getConfig Wasm +3ms
+prisma:getConfig config data retrieved without errors in getConfig Wasm +7ms
+prisma:getDMMF Using getDmmf Wasm +2ms
+Running javy...
+2026-03-03T05:29:14.972Z: Generating world to use with Javy:
+2026-03-03T05:29:14.972Z: package function:impl;
+
+world shopify-function {
+  export %cart-lines-discounts-generate-run: func();
+  export %cart-delivery-options-discounts-generate-run: func();
+}
+2026-03-03T05:29:14.974Z: Writing some content to file at C:/Users/VA-007/AppData/Local/Temp/e0a4caee7b8a35d175eea573142c4250/javy-world.wit...
+2026-03-03T05:29:14.984Z: Running system process:
+  · Command: C:/Users/VA-007/AppData/Roaming/npm/node_modules/@shopify/cli/bin/javy-v5.0.3.exe build -C dynamic -C plugin=C:/Users/VA-007/AppData/Roaming/npm/node_modules/@shopify/cli/bin/shopify_functions_javy_v2.wasm -C wit=C:/Users/VA-007/AppData/Local/Temp/e0a4caee7b8a35d175eea573142c4250/javy-world.wit -C wit-world=shopify-function -o D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm dist/function.js
+  · Working directory: D:/projects/Shopify-Custom-App/demo/extensions/discount-function
+
+prisma:getDMMF dmmf data retrieved without errors in getDmmf Wasm +151ms
+prisma:client:generator requiresEngines [
+  "libqueryEngine"
+] +2ms
+prisma:generator prismaCliDir D:\projects\Shopify-Custom-App\demo\node_modules\prisma +5ms
+prisma:generator prismaClientDir D:\projects\Shopify-Custom-App\demo\node_modules\@prisma\client +0ms
+prisma:generator baseDir D:\projects\Shopify-Custom-App\demo\prisma +0ms
+prisma:mergeSchemas Using mergeSchemas Wasm +0ms
+prisma:loadEnv project root found at D:\projects\Shopify-Custom-App\demo\node_modules\@prisma\client\package.json +10ms
+prisma:getSchema prismaConfig null +0ms
+prisma:getGenerators neededVersions {
+  "85179d7826409ee107a6ba334b5e305ae3fba9fb": {
+    "engines": [
+      "libqueryEngine"
+    ],
+    "binaryTargets": [
+      {
+        "fromEnvVar": null,
+        "value": "windows",
+        "native": true
+      }
+    ]
+  }
+} +1ms
+prisma:getGenerators {
+  "generatorBinaryPaths": {
+    "libqueryEngine": {
+      "windows": "D:\\projects\\Shopify-Custom-App\\demo\\node_modules\\prisma\\query_engine-windows.dll.node"
+    }
+  }
+} +571ms
+Done!
+2026-03-03T05:29:15.749Z: Wasm binary: wasm-opt.cjs
+2026-03-03T05:29:15.749Z: Optimizing this wasm binary using wasm-opt.
+2026-03-03T05:29:15.800Z: Running system process:
+  · Command: node wasm-opt.cjs D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm -Oz --enable-bulk-memory --enable-multimemory --enable-nontrapping-float-to-int --strip-debug -o D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm
+  · Working directory: C:/Users/VA-007/AppData/Roaming/npm/node_modules/@shopify/cli/bin
+
+prisma:tryLoadEnv Environment variables not found at null +12ms
+prisma:tryLoadEnv Environment variables loaded from D:\projects\Shopify-Custom-App\demo\.env +1ms
+prisma:cli:bin Execution time for executing "await cli.parse(commandArray)": 1299.7748000000001 ms +277ms
+
+✔ Generated Prisma Client (v6.15.0) to .\node_modules\@prisma\client in 242ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+2026-03-03T05:29:16.087Z: Running system process:
+  · Command: npm exec remix vite:dev
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:29:16.433Z: Applying trampoline to the wasm binary with command: C:/Users/VA-007/AppData/Roaming/npm/node_modules/@shopify/cli/bin/shopify-function-trampoline-v1.0.2.exe -i D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm -o D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm
+2026-03-03T05:29:16.441Z: Running system process:
+  · Command: C:/Users/VA-007/AppData/Roaming/npm/node_modules/@shopify/cli/bin/shopify-function-trampoline-v1.0.2.exe -i D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm -o D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm
+  · Working directory: D:/projects/Shopify-Custom-App/demo
+
+2026-03-03T05:29:16.493Z: Converting WASM from D:/projects/Shopify-Custom-App/demo/extensions/discount-function/dist/function.wasm to base64 in D:/projects/Shopify-Custom-App/demo/.shopify/dev-bundle/630829f6-2180-df6b-6a08-656aa871d3f31c3e344a/dist/index.wasm
+2026-03-03T05:29:16.493Z: Reading the content of file at extensions/discount-function/dist/function.wasm...
+2026-03-03T05:29:16.494Z: Creating an empty file at .shopify/dev-bundle/630829f6-2180-df6b-6a08-656aa871d3f31c3e344a/dist/index.wasm...
+2026-03-03T05:29:16.496Z: Writing some content to file at .shopify/dev-bundle/630829f6-2180-df6b-6a08-656aa871d3f31c3e344a/dist/index.wasm...
+2026-03-03T05:29:16.519Z: Function extensions detected, starting logs polling
+2026-03-03T05:29:16.534Z: Reading the content of file at extensions/discount-function/src/cart_lines_discounts_generate_run.graphql...
+2026-03-03T05:29:16.534Z: Reading the content of file at extensions/discount-function/src/cart_delivery_options_discounts_generate_run.graphql...
+2026-03-03T05:29:16.536Z: Sending "App Management" GraphQL request:
+  mutation AppLogsSubscribe($shopIds: [Int!]!, $apiKey: String!) {
+  appLogsSubscribe(shopIds: $shopIds, apiKey: $apiKey) {
+    jwtToken
+    success
+    errors
+    __typename
+  }
+}
+
+With variables:
+{
+  "shopIds": [
+    76705923298
+  ],
+  "apiKey": "*****"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://app.shopify.com/app_management/unstable/graphql.json
+2026-03-03T05:29:17.086Z: Removing file at C:/Users/VA-007/AppData/Local/Temp/732431e0-4e45-4156-8ea9-ed49e92ac53a.tar...
+2026-03-03T05:29:17.103Z: Sending "App Management" GraphQL request:
+  mutation CreateAssetURL($sourceExtension: SourceExtension!, $organizationId: ID!) {
+  appRequestSourceUploadUrl(
+    sourceExtension: $sourceExtension
+    organizationId: $organizationId
+  ) {
+    sourceUploadUrl
+    userErrors {
+      field
+      message
+      __typename
+    }
+    __typename
+  }
+}
+
+With variables:
+{
+  "sourceExtension": "BR",
+  "organizationId": "gid://shopify/Organization/180041279"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://app.shopify.com/app_management/unstable/graphql.json
+2026-03-03T05:29:17.107Z: Sync-reading the content of file at .shopify/dev-bundle.br...
+2026-03-03T05:29:17.130Z: Request to https://app.shopify.com/app_management/unstable/graphql.json completed in 595 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=187, verdict_flag_enabled;desc="count=4";dur=0.889, _y;desc="551dcdd4-773b-450a-b7d4-36ac59ae77de", _s;desc="f769a343-35b5-464a-901a-56edccdf3931", cfRequestDuration;dur=523.999929
+ - x-request-id: 76b35324-d160-4ef3-b466-ba068ab2e1d0-1772515756
+    
+2026-03-03T05:29:17.131Z: Token: eyJhbGciOiJIUzI1NiJ9.eyJzaG9wX2lkcyI6Wzc2NzA1OTIzMjk4XSwiYXBwX2lkIjoyNzcyNDExMzUxMDUsImFwaV9rZXkiOiJjMTBkNmI1ZmVkYTg2YWI3ZGYzMmI5NDQwZjFkMjMyMCIsInVzZXJfaWQiOiJjODk4MGI5Mi1iOGU4LTQ3MDktOThjYy1lYmE5NDVlM2E0NDUiLCJleHBpcmVzX2F0IjoxNzcyNTE3NTU3fQ.ZQQj0qPPq5UNIUPmH0SzMCB1G_k33lN1uyILh6LbCPY
+
+2026-03-03T05:29:17.131Z: API Key: c10d6b5feda86ab7df32b9440f1d2320
+
+2026-03-03T05:29:17.131Z: Subscribed to App Events for shop ID(s) 76705923298
+2026-03-03T05:29:17.131Z: Success: true
+
+2026-03-03T05:29:17.132Z: Creating directory at C:/Users/VA-007/AppData/Local/shopify-cli-nodejs/Log/c10d6b5feda86ab7df32b9440f1d2320...
+2026-03-03T05:29:17.134Z: Sending GET request to URL https://app.shopify.com/app_management/unstable/organizations/180041279/app_logs/poll
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+2026-03-03T05:29:17.535Z: Request to https://app.shopify.com/app_management/unstable/organizations/180041279/app_logs/poll completed in 401 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=33, verdict_flag_enabled;desc="count=4";dur=0.549, _y;desc="14a5870b-4389-4dd9-b71e-fbf1c72f48d4", _s;desc="2f666e8d-50f3-4f2d-9f1e-7628c8871a5e", cfRequestDuration;dur=350.999832
+ - x-request-id: d90a7ad9-c891-4845-bfde-5ca44b771c6b-1772515757
+    
+2026-03-03T05:29:17.654Z: Request to https://partners-extensions-scripts-bucket.storage.googleapis.com/deployments/app_sources/180041279/a5278e31-54f7-4841-9c40-81d6dd6b7667/source.br?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=argo-project-sa%40shopify-tiers.iam.gserviceaccount.com%2F20260303%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260303T051324Z&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=74a7a6503469515d800511043934847f368f1e9cc9d51c87a3acec3f88452cbc050b24e5a66e7c436b7365f1cb41a37f64c0caae784d1f7605f481aaf025a52d408c0c85273487f474782800ea834c780e17d84b2c8d2414fab4de31a43b7354bcc59f95e4a72f7f72fb885a6816958170e7fd3ded3e300cd01e511ec5cd2e467a096769d36c9fe1cdab5a647b9c3824d9bd31a5f849050084bc5c15fb06602d6c7db499cd84e9e8be6aea90f0bf0197ca4b6d55a11c7f590a9ff765ac9d07b0a246250abe8e6cdcd4811d28eb3520bd812597098bfc58839434a624e2102e8ee286e2ed96c34da42a4f8c08dc9ecfc29590bde6757a8536f7f4a618bb195284 completed in 545 ms
+With response headers:
+ - content-type: text/html; charset=UTF-8
+ - etag: "926018b5dd965c405646e35307e46a0b"
+    
+2026-03-03T05:29:17.683Z: Sending "App Dev" GraphQL request:
+  mutation DevSessionCreate($appId: String!, $assetsUrl: String!) {
+  devSessionCreate(appId: $appId, assetsUrl: $assetsUrl) {
+    userErrors {
+      message
+      on
+      field
+      category
+      __typename
+    }
+    __typename
+  }
+}
+
+With variables:
+{
+  "appId": "277241135105",
+  "assetsUrl": "https://partners-extensions-scripts-bucket.storage.googleapis.com/deployments/app_sources/180041279/a5278e31-54f7-4841-9c40-81d6dd6b7667/source.br?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=argo-project-sa%40shopify-tiers.iam.gserviceaccount.com%2F20260303%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260303T051324Z&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=74a7a6503469515d800511043934847f368f1e9cc9d51c87a3acec3f88452cbc050b24e5a66e7c436b7365f1cb41a37f64c0caae784d1f7605f481aaf025a52d408c0c85273487f474782800ea834c780e17d84b2c8d2414fab4de31a43b7354bcc59f95e4a72f7f72fb885a6816958170e7fd3ded3e300cd01e511ec5cd2e467a096769d36c9fe1cdab5a647b9c3824d9bd31a5f849050084bc5c15fb06602d6c7db499cd84e9e8be6aea90f0bf0197ca4b6d55a11c7f590a9ff765ac9d07b0a246250abe8e6cdcd4811d28eb3520bd812597098bfc58839434a624e2102e8ee286e2ed96c34da42a4f8c08dc9ecfc29590bde6757a8536f7f4a618bb195284"
+}
+
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+to https://juice-99.myshopify.com/app_dev/unstable/graphql.json
+2026-03-03T05:29:17.993Z: Sending GET request to URL https://app.shopify.com/app_management/unstable/organizations/180041279/app_logs/poll?cursor=2026-03-03T05%3A29%3A17.620628Z
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+2026-03-03T05:29:18.412Z: Request to https://app.shopify.com/app_management/unstable/organizations/180041279/app_logs/poll?cursor=2026-03-03T05%3A29%3A17.620628Z completed in 418 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=34, verdict_flag_enabled;desc="count=4";dur=0.459, _y;desc="0821a82f-6b6f-41c3-9c48-6f3e32b6384f", _s;desc="2357dfcb-3618-4a9a-833a-845d7406e100", cfRequestDuration;dur=348.999977
+ - x-request-id: 3c7a2621-4010-444a-b1f6-ccaec9791fa1-1772515758
+    
+2026-03-03T05:29:18.870Z: Sending GET request to URL https://app.shopify.com/app_management/unstable/organizations/180041279/app_logs/poll?cursor=2026-03-03T05%3A29%3A17.620628Z
+With request headers:
+ - User-Agent: Shopify CLI; v=3.84.1
+ - Keep-Alive: timeout=30
+ - Sec-CH-UA-PLATFORM: win32
+ - Content-Type: application/json
+
+2026-03-03T05:29:19.289Z: Request to https://app.shopify.com/app_management/unstable/organizations/180041279/app_logs/poll?cursor=2026-03-03T05%3A29%3A17.620628Z completed in 418 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=37, verdict_flag_enabled;desc="count=4";dur=0.491, _y;desc="e1b39b27-e0b2-47e9-becc-f161298f339c", _s;desc="ec0225ef-08e2-4d77-a81a-c9e7300ab37b", cfRequestDuration;dur=353.999853
+ - x-request-id: 2fd0f479-514a-4b40-afc5-cf4c473e0794-1772515759
+    
+2026-03-03T05:29:19.442Z: Request to https://juice-99.myshopify.com/app_dev/unstable/graphql.json completed in 1759 ms
+With response headers:
+ - content-type: application/json; charset=utf-8
+ - server-timing: processing;dur=1326, verdict_flag_enabled;desc="count=394";dur=42.855, _y;desc="a49ff596-8325-46a2-ad2e-1c3e2eeba30d", _s;desc="7e3fbecc-cae7-48b3-a661-44786fbae2e5", cfRequestDuration;dur=1627.999783
+ - x-request-id: 58b05923-c397-4ca0-934d-dba8203a54a7-1772515758
+    
+❌ Error└  This app is not approved to subscribe to webhook topics containing protected customer data. See https://shopify.dev/docs/apps/launch/protected-customer-data for more details.╭─ error ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Failed to start app preview.                                                │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

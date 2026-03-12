@@ -1,0 +1,102 @@
+<!-- snippets/subscription-widget-classic.liquid -->
+{% comment %}
+  Classic widget style - exact replica of React renderOptions classic case
+{% endcomment %}
+
+<div class="subscription-widget__options" role="radiogroup" aria-label="Purchase options">
+  {% for opt in productPreview.options %}
+    <div class="subscription-widget__option{% if opt.id == 'subscribe' %} subscription-widget__option--selected{% endif %}">
+      <!-- OptionRow equivalent -->
+      <div class="subscription-widget__option-content">
+        <label class="subscription-widget__option-label">
+          <!-- LEFT SIDE -->
+          <div class="subscription-widget__option-left">
+            <input
+              type="radio"
+              name="purchase-option"
+              value="{{ opt.id }}"
+              class="subscription-widget__radio"
+              {% if opt.id == 'subscribe' %}checked{% endif %}
+            />
+            <div class="subscription-widget__option-text">
+              <!-- PRIMARY CONTENT -->
+              {% if opt.badge %}
+                <div class="subscription-widget__option-header">
+                  <span class="subscription-widget__option-main-label">
+                    {{ widget_labels.subscriptionPurchaseLabel | default: 'Subscribe & Save' }}
+                  </span>
+                  {% unless widget_customization.hideDiscountBadge %}
+                    {% if widget_labels.discountBadgeFormat %}
+                      {% assign selected_freq = frequency_options | where: 'value', '30' | first %}
+                      {% assign discount_percentage = selected_freq.discount | default: 10 %}
+                      <span class="subscription-widget__badge">
+                        {% comment %} {{ widget_labels.discountBadgeFormat | replace: '{{selectedDiscountPercentage}}', discount_percentage | append: '%' }} {% endcomment %}
+                      </span>
+                    {% endif %}
+                  {% endunless %}
+                </div>
+              {% else %}
+                <span class="subscription-widget__option-main-label">
+                  {{ widget_labels.oneTimePurchaseLabel | default: 'One-time purchase' }}
+                </span>
+              {% endif %}
+
+              <!-- HELP TEXT -->
+              {% if opt.id == 'oneTime' and widget_labels.oneTimePurchaseSubtext %}
+                <span class="subscription-widget__option-subtext">
+                  {{ widget_labels.oneTimePurchaseSubtext }}
+                </span>
+              {% elsif opt.id == 'subscribe' and widget_labels.subscriptionPurchaseSubtext %}
+                <span class="subscription-widget__option-subtext">
+                  {{ widget_labels.subscriptionPurchaseSubtext }}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- RIGHT SIDE -->
+          {% if opt.discountedPrice %}
+            <div class="subscription-widget__option-right">
+              {% if opt.originalPrice %}
+                <span class="subscription-widget__price--original">
+                  {{ shop.currency }}{{ opt.originalPrice }}
+                </span>
+              {% endif %}
+              <span class="subscription-widget__price">
+                {{ shop.currency }}{{ opt.discountedPrice }}
+              </span>
+            </div>
+          {% else %}
+            <div class="subscription-widget__option-right">
+              <span class="subscription-widget__price">
+                {{ widget_labels.oneTimePriceFormat | default: '{{price}}' | replace: '{{price}}', opt.price | replace: '{{currency}}', shop.currency }}
+              </span>
+            </div>
+          {% endif %}
+        </label>
+      </div>
+
+      <!-- Show frequency radios when subscribe is active or keepFrequencyVisible -->
+      {% if (opt.id == 'subscribe') %}
+        <div class="subscription-widget__frequency">
+          <label class="subscription-widget__frequency-label">
+            {{ widget_labels.deliveryFrequencyLabel | default: 'Delivery every' }}
+          </label>
+          <div class="subscription-widget__frequency-options">
+            {% for freq in frequency_options %}
+              <label class="subscription-widget__frequency-option">
+                <input
+                  type="radio"
+                  name="delivery-frequency"
+                  value="{{ freq.value }}"
+                  class="subscription-widget__frequency-radio"
+                />
+                <span>{{ freq.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>

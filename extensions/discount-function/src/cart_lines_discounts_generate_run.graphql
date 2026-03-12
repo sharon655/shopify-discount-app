@@ -1,0 +1,15 @@
+query RunInput {
+  cart {
+    cost {
+      subtotalAmount {
+        amount
+        currencyCode
+      }
+    }
+  }
+  discount {
+    metafield(namespace: "$app", key: "discount_config") {
+      value
+    }
+  }
+}

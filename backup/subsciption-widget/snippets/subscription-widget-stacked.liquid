@@ -1,0 +1,39 @@
+<!-- snippets/subscription-widget-stacked.liquid -->
+{% comment %}
+  Stacked widget style - exact replica of React renderOptions stacked case
+{% endcomment %}
+
+<div style="display: flex; flex-direction: column; gap: {{ widget_customization.optionSpacing | default: 8 }}px;" role="radiogroup" aria-label="Purchase options">
+  <!-- One-time purchase -->
+  <div style="cursor: pointer; border-radius: {{ widget_customization.borderRadius | default: 8 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 16px; background-color: white; color: black;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: {{ widget_customization.labelTextSize | default: 14 }}px; color: black;">
+        {{ widget_labels.oneTimePurchaseLabel | default: 'One-time purchase' }}
+      </span>
+      <span style="font-size: 14px; color: black;">
+        {{ shop.currency }}{{ productPreview.options[0].price }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Subscription frequencies -->
+  {% for freq in frequency_options %}
+    <div style="cursor: pointer; border-radius: {{ widget_customization.borderRadius | default: 8 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 16px; background-color: white; color: black;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: {{ widget_customization.labelTextSize | default: 14 }}px; color: black;">
+          {{ freq.label }}
+        </span>
+        <span style="font-size: 14px; color: black;">
+          {% unless widget_customization.hideDiscountBadge %}
+            {% if widget_labels.discountBadgeFormat %}
+              <span style="display: inline-block; background-color: {{ widget_customization.discountBadgeColor | default: 'rgb(220 252 231)' }}; color: {{ widget_customization.discountBadgeTextColor | default: 'rgb(22 101 52)' }}; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 12px; margin-bottom: 4px;">
+                {{ freq.discount }}% OFF
+              </span>
+            {% endif %}
+          {% endunless %}
+          {% comment %} {{ shop.currency }}{{ productPreview.options[0].price | times: (1 - freq.discount / 100) | money_without_currency }} {% endcomment %}
+        </span>
+      </div>
+    </div>
+  {% endfor %}
+</div>

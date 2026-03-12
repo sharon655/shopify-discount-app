@@ -1,0 +1,22 @@
+<!-- snippets/subscription-widget-button.liquid -->
+{% comment %}
+  Button widget style - exact replica of React renderOptions button case
+{% endcomment %}
+
+<div style="padding-top: 8px;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: {{ widget_customization.optionSpacing | default: 8 }}px;" role="radiogroup" aria-label="Purchase options">
+    <!-- One-time purchase -->
+    <div role="radio" aria-checked="false" tabindex="0" style="cursor: pointer; border-radius: {{ widget_customization.borderRadius | default: 12 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 16px 20px; text-align: center; font-weight: 500; background-color: white; color: black;">
+      {{ widget_labels.oneTimePurchaseLabel | default: 'One-time purchase' }}
+    </div>
+
+    <!-- Subscription frequencies -->
+    {% for freq in frequency_options %}
+      <div role="radio" aria-checked="false" tabindex="0" style="cursor: pointer; border-radius: {{ widget_customization.borderRadius | default: 12 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 16px 20px; text-align: center; font-weight: 500; background-color: white; color: black;">
+        <span style="font-size: {{ widget_customization.labelTextSize | default: 14 }}px;">
+          {{ freq.label }}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>

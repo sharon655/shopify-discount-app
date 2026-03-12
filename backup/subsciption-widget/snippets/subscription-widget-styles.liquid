@@ -1,0 +1,81 @@
+<!-- snippets/subscription-widget-styles.liquid -->
+{% comment %}
+  Conditional CSS styles for subscription widget - Base styles moved to asset file
+  Usage: {% render 'subscription-widget-styles', widget_style: widget_style %}
+{% endcomment %}
+
+<style>
+  /* Conditional styles based on widget_style - High specificity with !important */
+
+  /* Luminic style - modern styling with shadows and transforms */
+  {% if widget_style == 'luminic' %}
+  .subscription-widget .subscription-widget__option,
+  .subscription-widget__option {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  .subscription-widget .subscription-widget__option:hover,
+  .subscription-widget__option:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .subscription-widget .subscription-widget__option--selected,
+  .subscription-widget__option--selected {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    background: linear-gradient(135deg, var(--sw-primary-color), var(--sw-primary-color)) !important;
+  }
+  {% endif %}
+
+  /* Grid styles */
+  {% if widget_style == 'grid' or widget_style == 'grid-savings' %}
+  .subscription-widget .subscription-widget__options--grid,
+  .subscription-widget__options--grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+    gap: var(--sw-option-spacing) !important;
+  }
+
+  .subscription-widget .subscription-widget__option--grid,
+  .subscription-widget__option--grid {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    min-height: 100px !important;
+    padding: 20px !important;
+  }
+  {% endif %}
+
+  /* Button styles */
+  {% if widget_style == 'button' %}
+  .subscription-widget .subscription-widget__options--button,
+  .subscription-widget__options--button {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+    gap: var(--sw-option-spacing) !important;
+  }
+
+  .subscription-widget .subscription-widget__option--button,
+  .subscription-widget__option--button {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 50px !important;
+    font-weight: 500 !important;
+    text-align: center !important;
+  }
+  {% endif %}
+
+  /* Stacked styles */
+  {% if widget_style == 'stacked' %}
+  .subscription-widget .subscription-widget__option--stacked,
+  .subscription-widget__option--stacked {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+  {% endif %}
+</style>

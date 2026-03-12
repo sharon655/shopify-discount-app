@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Session {
+  id            String    @id
+  shop          String    @unique
+  isOnline      Boolean   @default(false)
+  scope         String?
+  accessToken   String
+  planId        Int?
+  accountOwner  Boolean   @default(false)
+  collaborator  Boolean   @default(false)
+  email         String?
+  emailVerified Boolean   @default(false)
+  expires       DateTime?
+  firstName     String?
+  lastName      String?
+  locale        String?
+  state         String?
+  userId        BigInt?
+  onboardingCompleted Boolean @default(false)
+}
+
+// Tracks threshold budget per discount per shop
+model DiscountThreshold {
+  id               String   @id @default(cuid())
+  shop             String
+  discountGid      String   // Shopify GID e.g. gid://shopify/DiscountCodeApp/12345
+  discountCode     String
+  title            String
+  discountType     String   @default("percentage") // "percentage" or "fixed"
+  percentage       Float?
+  fixedValue       Float?
+  totalThreshold   Float    // Max total discount amount allowed
+  usedAmount       Float    @default(0) // Total discount given out so far
+  remainingAmount  Float    // Cached: totalThreshold - usedAmount
+  isActive         Boolean  @default(true)
+  startDate        DateTime @default(now())
+  endDate          DateTime?
+  version          Int      @default(0) // Optimistic lock version
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([shop, discountGid])
+  @@index([shop, discountCode])
+}
+
+// Tracks which orders have been processed to prevent double-deduction
+model ProcessedOrder {
+  id          String   @id @default(cuid())
+  shop        String
+  orderId     String   // Shopify order ID
+  discountGid String
+  deducted    Float    // Amount that was deducted for this order
+  createdAt   DateTime @default(now())
+
+  @@unique([shop, orderId, discountGid])
+}

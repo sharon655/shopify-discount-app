@@ -1,0 +1,79 @@
+{% comment %}
+  Subscription Widget Block
+  Accepts: product, settings
+{% endcomment %}
+
+{%- liquid
+   assign widget_settings_raw = shop.metafields['$app:subscription-widget']['settings'] | default: '{}'
+   assign widget_customization_raw = shop.metafields['$app:subscription-widget']['customization'] | default: '{}'
+   assign widget_labels_raw = shop.metafields['$app:subscription-widget']['labels'] | default: '{}'
+
+   # Parse JSON strings for Liquid access (Shopify automatically parses JSON metafields)
+   assign widget_settings = widget_settings_raw
+   assign widget_customization = widget_customization_raw
+   assign widget_labels = widget_labels_raw
+
+   # Extract widget style for conditional styling
+   assign widget_style = widget_settings.widgetStyle | default: 'luminic'
+
+   # Get frequency options from settings metafield, fallback to defaults
+   assign frequency_options = widget_settings.frequencyOptions | default: '[{"value":"30","label":"Every 30 days","discount":10},{"value":"60","label":"Every 60 days","discount":15},{"value":"90","label":"Every 90 days","discount":20}]'
+  -%}
+
+  <div
+    class="subscription-widget"
+    style="display: block;"
+    data-product-id="{{ product.id }}"
+    data-shop-domain="{{ shop.permanent_domain }}"
+    data-shop-currency="{{ shop.currency }}"
+    data-block-id="{{ block.id }}"
+    data-widget-settings="{{ block.settings | json | escape }}"
+    data-product-price="{{ product.price | money_without_currency | remove: ',' }}"
+    data-product-title="{{ product.title | escape }}"
+    data-config-settings="{{ widget_settings | escape }}"
+    data-config-customization="{{ widget_customization | escape }}"
+    data-config-labels="{{ widget_labels | escape }}"
+    data-widget-style="{{ widget_style }}"
+    data-frequency-options="{{ frequency_options | json | escape }}"
+    data-settings-timestamp="{{ widget_settings._lastUpdated | default: '2024-01-01T00:00:00.000Z' | escape }}"
+    data-customization-timestamp="{{ widget_customization._lastUpdated | default: '2024-01-01T00:00:00.000Z' | escape }}"
+    data-labels-timestamp="{{ widget_labels._lastUpdated | default: '2024-01-01T00:00:00.000Z' | escape }}"
+    data-product-variants="{{ product.variants | json | escape }}"
+    data-selling-plan-groups="{{ product.selling_plan_groups | json | escape }}"
+    data-selling-plans-json="{{ shop.metafields['$app:subscription-widget']['sellingPlansJson'] | default: '[]' | escape }}"
+    data-customer-id="{{ customer.id | default: '' }}"
+    data-customer-tags="{{ customer.tags | join: ',' | default: '' | escape }}"
+  >
+   <!-- Loading state -->
+   <div class="subscription-widget__loading">
+     <div class="subscription-widget__skeleton">
+       <div class="skeleton-line" style="height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; border-radius: 4px;"></div>
+       <div class="skeleton-line" style="height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; border-radius: 4px;"></div>
+       <div class="skeleton-line" style="height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; border-radius: 4px;"></div>
+     </div>
+   </div>
+
+   <!-- Widget content - rendered dynamically by JavaScript -->
+   <div class="subscription-widget__content" style="display: none;">
+     <!-- JavaScript will populate this container -->
+   </div>
+  </div>
+
+ <!-- Include base styles from asset file for better loading and caching -->
+ <link rel="stylesheet" href="{{ 'subscription-widget.css' | asset_url }}" media="all">
+
+ <!-- Include conditional styles based on widget style -->
+ {% render 'subscription-widget-styles', widget_style: widget_style %}
+
+ <!-- Include the main JavaScript (deferred for better performance) -->
+ <script src="{{ 'subscription-widget.js' | asset_url }}" defer></script>
+
+<!-- Widget initialization is handled by the main JavaScript file -->
+
+{% schema %}
+{
+  "name": "Subscription Widget",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

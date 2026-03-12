@@ -1,0 +1,46 @@
+<!-- snippets/subscription-widget-grid-savings.liquid -->
+{% comment %}
+  Grid savings widget style - exact replica of React renderOptions grid-savings case
+{% endcomment %}
+
+<div style="">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: {{ widget_customization.optionSpacing | default: 8 }}px;" role="radiogroup" aria-label="Purchase options with savings">
+    <!-- One-time purchase box -->
+    <div role="radio" aria-checked="false" tabindex="0" style="display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: {{ widget_customization.borderRadius | default: 12 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 8px; cursor: pointer; background-color: white; color: black;">
+      <span style="font-size: 14px; font-weight: 300; text-align: center;">
+        {{ widget_labels.oneTimePurchaseLabel | default: 'One-time purchase' }}
+      </span>
+      <span style="font-size: 14px;">
+        {{ shop.currency }}{{ productPreview.options[0].price }}
+      </span>
+    </div>
+
+    <!-- Subscription frequencies with savings -->
+    {% for freq in frequency_options %}
+      <div role="radio" aria-checked="false" tabindex="0" style="display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: {{ widget_customization.borderRadius | default: 12 }}px; border: {{ widget_customization.borderWidth | default: 1 }}px solid #e5e7eb; padding: 8px; cursor: pointer; background-color: white; color: black;">
+        <!-- Discount badge -->
+        {% unless widget_customization.hideDiscountBadge %}
+          {% if widget_labels.discountBadgeFormat %}
+            <span style="display: inline-block; background-color: {{ widget_customization.discountBadgeColor | default: 'rgb(219 234 254)' }}; color: {{ widget_customization.discountBadgeTextColor | default: 'rgb(30 64 175)' }}; font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 12px; margin-bottom: 4px;">
+              {% comment %} {{ widget_labels.discountBadgeFormat | replace: '{{selectedDiscountPercentage}}', freq.discount | append: '%' }} {% endcomment %}
+            </span>
+          {% endif %}
+        {% endunless %}
+
+        <!-- Label -->
+        <span style="font-size: {{ widget_customization.labelTextSize | default: 14 }}px; font-weight: 300; text-align: center;">
+          {{ freq.label }}
+        </span>
+
+        <!-- Price with discount -->
+        <span style="font-size: 14px;">
+          {% comment %} {{ shop.currency }}{{ productPreview.options[0].price | times: (1 - freq.discount / 100) | money_without_currency }} {% endcomment %}
+        </span>
+
+        <span style="font-size: 12px; color: #666;">
+          ({{ freq.discount }}% off)
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>

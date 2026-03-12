@@ -1,0 +1,36 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "c10d6b5feda86ab7df32b9440f1d2320"
+name = "Discount Threshold Manager"
+application_url = "https://shopify-discount-app-production.up.railway.app/"
+embedded = true
+handle = "discount-threshold-manager"
+
+[webhooks]
+api_version = "2025-07"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/scopes_update"]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/create"]
+  uri = "/webhooks/orders/create"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+# scopes = "write_discounts,read_discounts,read_orders,write_orders"
+scopes = "write_discounts,read_discounts,read_orders"
+
+[auth]
+redirect_urls = [ "https://shopify-discount-app-production.up.railway.app/api/auth" ]
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false

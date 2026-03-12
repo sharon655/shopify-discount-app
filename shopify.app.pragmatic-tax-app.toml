@@ -1,0 +1,23 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "e3ff30edbacaeffb5eddc44e93c8d0f0"
+name = "pragmatic-tax-app"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = true
+handle = "pragmatic-tax-app-17"
+
+[webhooks]
+api_version = "2025-07"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = ""
+
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true

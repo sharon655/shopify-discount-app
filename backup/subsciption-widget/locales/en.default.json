@@ -1,0 +1,26 @@
+{
+  "ratings": {
+    "stars": {
+      "label": "Ratings"
+    },
+    "home": {
+      "recommendationText": "Recommended Product!"
+    }
+  },
+  "subscription": {
+    "oneTimePurchaseLabel": "One-time purchase",
+    "subscriptionPurchaseLabel": "Subscribe and save",
+    "purchaseOptionsHeading": "Purchase Options",
+    "deliveryFrequencyLabel": "Delivery Frequency",
+    "oneTimePurchaseSubtext": "Pay once for this item",
+    "subscriptionPurchaseSubtext": "Save with recurring deliveries",
+    "oneTimePriceFormat": "{{price}}",
+    "discountBadgeFormat": "SAVE {{selectedDiscountPercentage}}%",
+    "tooltipTitle": "Subscription Details",
+    "defaultTooltipDescription": "Have complete control of your subscriptions. Skip, reschedule, edit, or cancel deliveries anytime, based on your needs.",
+    "addToCart": "ADD TO CART",
+    "monthly": "Monthly",
+    "weekly": "Weekly",
+    "daily": "Daily"
+  }
+}
