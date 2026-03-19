@@ -40,24 +40,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (!discountRecord) continue;
 
-    // Idempotency guard: check if this order was already processed for this discount
-    const alreadyProcessed = await prisma.processedOrder.findUnique({
-      where: {
-        shop_orderId_discountGid: {
-          shop,
-          orderId,
-          discountGid: discountRecord.discountGid,
-        },
-      },
-    });
-
-    if (alreadyProcessed) {
-      console.log(`[webhook] Order ${orderId} already processed for discount ${code}. Skipping.`);
-      continue;
-    }
-
-    // Use a Prisma transaction with optimistic locking (version check)
-    // This ensures first-come-first-serve: two simultaneous webhook calls won't double-deduct
+    // Use a Prisma transaction with optimistic locking (version check).
+    // Idempotency check is INSIDE the transaction to prevent double-deduction
+    // when Shopify delivers the same webhook twice concurrently.
     let success = false;
     let retries = 3;
 
@@ -71,6 +56,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           if (!freshRecord) throw new Error("Discount not found");
+
+          // Idempotency guard inside transaction — safe against concurrent webhook calls
+          const existingOrder = await tx.processedOrder.findUnique({
+            where: {
+              shop_orderId_discountGid: {
+                shop,
+                orderId,
+                discountGid: freshRecord.discountGid,
+              },
+            },
+          });
+          if (existingOrder) throw new Error("Already processed");
 
           const deductAmount = Math.min(actualDeducted, freshRecord.remainingAmount);
           const newUsed = freshRecord.usedAmount + deductAmount;
@@ -103,14 +100,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             },
           });
 
-          // Update the Shopify metafield so the Function reads the new remaining threshold
-          // We do this after transaction to not hold DB lock during network call
+          // Update the Shopify metafield so the Function reads the new remaining threshold.
+          // IMPORTANT: Preserve ALL config fields (type, fixedAmount/percentage) so the
+          // function does not lose the discount type after an order is processed.
           try {
-            const newMetafieldValue = JSON.stringify({
-              percentage: freshRecord.percentage,
+            const metafieldConfig: Record<string, unknown> = {
+              type: freshRecord.discountType,
               remaining_threshold: newRemaining,
               total_threshold: freshRecord.totalThreshold,
-            });
+            };
+
+            if (freshRecord.discountType === "fixed") {
+              metafieldConfig.fixedAmount = freshRecord.fixedValue ?? 0;
+            } else {
+              metafieldConfig.percentage = freshRecord.percentage ?? 0;
+            }
 
             await admin.graphql(UPDATE_METAFIELD_MUTATION, {
               variables: {
@@ -119,7 +123,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   namespace: "$app",
                   key: "discount_config",
                   type: "json",
-                  value: newMetafieldValue,
+                  value: JSON.stringify(metafieldConfig),
                 }],
               },
             });
@@ -130,8 +134,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         success = true;
-        console.log(`[webhook] Threshold deducted for code ${code}: ₹${actualDeducted} from order ${orderId}`);
+        console.log(`[webhook] Threshold deducted for code ${code}: ${actualDeducted} from order ${orderId}`);
       } catch (err: any) {
+        if (err.message?.includes("Already processed")) {
+          // Concurrent webhook delivery — another call already handled this order
+          console.log(`[webhook] Order ${orderId} already processed for discount ${code} (concurrent). Skipping.`);
+          success = true;
+          break;
+        }
         if (err.message?.includes("Version conflict") && retries > 0) {
           // Wait a short time before retrying on version conflict
           await new Promise((res) => setTimeout(res, 100));

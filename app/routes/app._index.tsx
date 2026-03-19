@@ -240,6 +240,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const threshold = parseFloat(thresholdStr);
     if (isNaN(threshold) || threshold <= 0) errors.threshold = "Threshold must be a positive number";
 
+    // Cross-field: fixed discount amount cannot exceed the total budget
+    if (discountType === "fixed" && fixedValue !== null && !isNaN(threshold) && fixedValue > threshold) {
+      errors.fixedValue = "Fixed discount amount cannot be greater than the total threshold budget";
+    }
+
     let startDate: Date;
     if (startDateStr) {
       const parts = startDateStr.split('-');
@@ -342,6 +347,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const newTotalThreshold = parseFloat(thresholdStr);
     if (isNaN(newTotalThreshold) || newTotalThreshold <= 0) errors.threshold = "Threshold must be a positive number";
     if (newTotalThreshold < discount.usedAmount) errors.threshold = `Cannot set threshold below already-used amount (₹${discount.usedAmount.toFixed(2)})`;
+
+    // Cross-field: fixed discount amount cannot exceed the total budget
+    if (discountType === "fixed" && fixedValue !== null && !isNaN(newTotalThreshold) && fixedValue > newTotalThreshold) {
+      errors.fixedValue = "Fixed discount amount cannot be greater than the total threshold budget";
+    }
 
     let startDate: Date;
     if (startDateStr) {
@@ -976,9 +986,14 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
                     <FormLayout.Group>
                       {discountType === "percentage" ? (
                         <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={setPercentage} suffix="%" type="number" helpText="Percentage off the order subtotal (1–100)" error={errors.percentage} autoComplete="off" />
-                      ) : (
-                        <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={setFixedValue} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={errors.fixedValue} autoComplete="off" />
-                      )}
+                      ) : (() => {
+                        const fixedNum = parseFloat(fixedValue);
+                        const threshNum = parseFloat(threshold);
+                        const fixedClientError = (!isNaN(fixedNum) && !isNaN(threshNum) && fixedNum > threshNum)
+                          ? "Fixed discount amount cannot be greater than the total threshold budget"
+                          : errors.fixedValue;
+                        return <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={setFixedValue} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={fixedClientError} autoComplete="off" />;
+                      })()}
                       <TextField label="Threshold Budget" name="threshold" value={threshold} onChange={setThreshold} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Maximum total discount amount" error={errors.threshold} autoComplete="off" />
                     </FormLayout.Group>
                     <FormLayout.Group>
@@ -1100,13 +1115,18 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
                   </InlineGrid>
                   <Divider />
                   <FormLayout>
-                    <Select label="Discount Type" name="discountType" options={[{label: "Percentage", value: "percentage"}, {label: "Fixed Amount", value: "fixed"}]} value={discountType} onChange={setDiscountType} />
+                     <Select label="Discount Type" name="discountType" options={[{label: "Percentage", value: "percentage"}, {label: "Fixed Amount", value: "fixed"}]} value={discountType} onChange={setDiscountType} />
                     <FormLayout.Group>
                       {discountType === "percentage" ? (
                         <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={setPercentage} suffix="%" type="number" error={errors.percentage} autoComplete="off" />
-                      ) : (
-                        <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={setFixedValue} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={errors.fixedValue} autoComplete="off" />
-                      )}
+                      ) : (() => {
+                        const fixedNum = parseFloat(fixedValue);
+                        const threshNum = parseFloat(threshold);
+                        const fixedClientError = (!isNaN(fixedNum) && !isNaN(threshNum) && fixedNum > threshNum)
+                          ? "Fixed discount amount cannot be greater than the total threshold budget"
+                          : errors.fixedValue;
+                        return <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={setFixedValue} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={fixedClientError} autoComplete="off" />;
+                      })()}
                       <TextField label="Total Threshold Budget" name="threshold" value={threshold} onChange={setThreshold} prefix={getCurrencySymbol(currencyCode)} type="number" helpText={`Must be at least ${formatCurrency(discount.usedAmount, currencyCode)} (already used)`} error={errors.threshold} autoComplete="off" />
                     </FormLayout.Group>
                     <FormLayout.Group>

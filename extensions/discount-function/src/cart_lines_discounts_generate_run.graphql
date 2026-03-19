@@ -12,4 +12,5 @@ query RunInput {
       value
     }
   }
+  presentmentCurrencyRate
 }

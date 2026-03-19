@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { Form, useLoaderData, useNavigation } from "@remix-run/react";
+import { Form, Link, useLoaderData, useNavigation } from "@remix-run/react";
 import { useState, useEffect } from "react";
 import { GrainGradient } from '@paper-design/shaders-react';
 import { login } from "../../shopify.server";
@@ -139,6 +139,39 @@ export default function App() {
           </div>
         </div>
       </main>
+       {/* Footer */}
+      <footer
+        style={{
+          position: "relative",
+          zIndex: 10,
+          width: "100%",
+          maxWidth: "960px",
+          margin: "0 auto",
+          padding: "20px 20px 32px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+        }}
+      >
+        <span style={{ fontSize: "12px", fontWeight: 500, color: "#e2e8f0" }}>
+          &copy; {new Date().getFullYear()} Smart Discount App
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <Link
+            to="/privacy"
+            style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", textDecoration: "none" }}
+          >
+            Privacy
+          </Link>
+          <Link
+            to="/terms"
+            style={{ fontSize: "12px", fontWeight: 600, color: "#64748b", textDecoration: "none" }}
+          >
+            Terms
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }
