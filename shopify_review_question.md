@@ -51,3 +51,5 @@ scopes = "write_discounts,read_discounts,read_orders"
 ```
 
 `read_all_orders` is **not present** anywhere in our configuration.
+
+## Attached Screenshot from app dashboard version: https://prnt.sc/FIz5gFpBkchZ
