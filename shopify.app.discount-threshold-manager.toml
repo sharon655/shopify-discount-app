@@ -1,33 +1,46 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "4743f232818b9ba5b2a8cb8ced19bcdf"
-name = "Discount Threshold Manager"
-application_url = "https://discount-threshold-manager.up.railway.app/"
+client_id = "d93a465aed9d8e307beac7dd37a5ff50"
+name = "discount-threshold-manager"
+application_url = "https://shopify-discount-app-production.up.railway.app/"
 embedded = true
 
-[build]
-automatically_update_urls_on_dev = false
 
 [webhooks]
-api_version = "2026-04"
+api_version = "2026-07"
 
-[[webhooks.subscriptions]]
-topics = [ "customers/data_request" ]
-uri = "/webhooks/customers-data-request"
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
 
-[[webhooks.subscriptions]]
-topics = [ "customers/redact" ]
-uri = "/webhooks/customers-redact"
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
 
-[[webhooks.subscriptions]]
-topics = [ "shop/redact" ]
-uri = "/webhooks/shop-redact"
+  [[webhooks.subscriptions]]
+  topics = [ "products/create" ]
+  uri = "/webhooks/products/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/update" ]
+  uri = "/webhooks/products/update"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_discounts,read_orders,write_discounts"
+scopes = "read_discounts,read_orders,read_payment_customizations,read_products,write_discounts,write_orders,write_payment_customizations,write_products"
 
 [auth]
 redirect_urls = [
-  "https://discount-threshold-manager.up.railway.app/api/auth"
+  "https://shopify-discount-app-production.up.railway.app/api/auth"
 ]
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+dev_command = "remix vite:dev"

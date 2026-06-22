@@ -1,5 +1,26 @@
 query RunInput {
   cart {
+    lines {
+      id
+      quantity
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          id
+          product {
+            id
+          }
+        }
+      }
+      attribute(key: "free_gift_code") {
+        value
+      }
+    }
     cost {
       subtotalAmount {
         amount

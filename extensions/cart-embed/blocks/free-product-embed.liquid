@@ -1,0 +1,18 @@
+<script>
+  window.freeProductAdderAppUrl = "{{ shop.metafields.custom.app_url.value | default: 'https://shopify-discount-app-production.up.railway.app/' }}";
+</script>
+<script src="{{ 'free-product-adder.js' | asset_url }}" defer></script>
+
+<style>
+  .shopify-payment-button {
+    display: none !important;
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Free Product Auto Adder",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}
