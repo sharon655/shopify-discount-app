@@ -43,6 +43,47 @@ async function restoreStartsAtIfFuture(admin: any, discountGid: string, startDat
   ).catch((e: any) => console.error("Failed to restore startsAt:", e));
 }
 
+async function deletePaymentTypeMetafield(admin: any, discountGid: string) {
+  try {
+    console.log("deletePaymentTypeMetafield starting for GID:", discountGid);
+    const query = `
+      query getMetafieldId($id: ID!) {
+        discountNode(id: $id) {
+          metafield(namespace: "$app", key: "payment_type") {
+            id
+          }
+        }
+      }
+    `;
+    const res = await admin.graphql(query, { variables: { id: discountGid } });
+    const data = await res.json() as any;
+    console.log("deletePaymentTypeMetafield query result:", JSON.stringify(data, null, 2));
+    const metafieldId = data?.data?.discountNode?.metafield?.id;
+    if (metafieldId) {
+      console.log("Found metafieldId:", metafieldId, "deleting...");
+      const mutation = `
+        mutation metafieldDelete($input: MetafieldDeleteInput!) {
+          metafieldDelete(input: $input) {
+            deletedId
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+      const deleteRes = await admin.graphql(mutation, { variables: { input: { id: metafieldId } } });
+      const deleteData = await deleteRes.json() as any;
+      console.log("deletePaymentTypeMetafield mutation result:", JSON.stringify(deleteData, null, 2));
+    } else {
+      console.log("No payment_type metafield found to delete.");
+    }
+  } catch (e) {
+    console.error("Error deleting payment_type metafield:", e);
+  }
+}
+
+
 const CREATE_DISCOUNT_MUTATION = `
   mutation discountCodeAppCreate($discount: DiscountCodeAppInput!) {
     discountCodeAppCreate(codeAppDiscount: $discount) {
@@ -109,7 +150,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shopRes = await admin.graphql(SHOP_INFO_QUERY);
     const shopData = await shopRes.json() as any;
     currencyCode = shopData?.data?.shop?.currencyCode || "INR";
-  } catch {}
+  } catch { }
 
   // Batch-fetch asyncUsageCount and status for each discount via aliased GraphQL (codeDiscountNode)
   const usageCounts: Record<string, number> = {};
@@ -126,7 +167,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         usageCounts[d.id] = usageData?.data?.[`d${i}`]?.codeDiscount?.asyncUsageCount ?? 0;
         discountStatuses[d.id] = usageData?.data?.[`d${i}`]?.codeDiscount?.status ?? "";
       });
-    } catch {}
+    } catch { }
   }
 
   return json({ discounts, currencyCode, usageCounts, discountStatuses });
@@ -161,7 +202,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const response = await admin.graphql(GET_FUNCTIONS_QUERY);
       const data = await response.json() as any;
       const functions = data?.data?.shopifyFunctions?.nodes || [];
-      const paymentFunction = functions.find((f: any) => 
+      const paymentFunction = functions.find((f: any) =>
         f.apiType?.toLowerCase() === "payment_customization" || f.title?.toLowerCase().includes("payment") || f.title?.toLowerCase().includes("bypass")
       );
       if (!paymentFunction) return json({ success: false, errors: { general: "Payment customization function not found in shopifyFunctions" } });
@@ -229,7 +270,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const currentActive = formData.get("currentIsActive") === "true";
       const newActive = !currentActive;
       const mutationName = newActive ? "discountCodeActivate" : "discountCodeDeactivate";
-      
+
       try {
         await admin.graphql(
           `mutation ${mutationName}($id: ID!) { ${mutationName}(id: $id) { userErrors { field message } } }`,
@@ -268,7 +309,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (!title) errors.title = "Title is required";
     if (!code || code.length < 3) errors.code = "Code must be at least 3 characters";
     if (!/^[A-Z0-9_-]+$/.test(code || "")) errors.code = "Code can only contain letters, numbers, dashes, and underscores";
-    
+
     let percentage: number | null = null;
     let fixedValue: number | null = null;
 
@@ -295,7 +336,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } else {
       startDate = new Date();
     }
-    
+
     let endDate: Date | null = null;
     if (endDateStr) {
       const parts = endDateStr.split('-');
@@ -305,6 +346,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (endDate && endDate <= startDate) {
       errors.endDate = "End date must be after the start date";
     }
+
+    let specialProductsParsed: any[] = [];
+    if (specialProducts) {
+      try {
+        specialProductsParsed = JSON.parse(specialProducts);
+      } catch (e) {}
+    }
+    specialProductsParsed.forEach((item) => {
+      if (!item.productId) {
+        errors[`specialProduct_${item.id}`] = "Please select a product";
+      }
+    });
 
     if (Object.keys(errors).length > 0) return json({ errors, success: false, actionType: "create" });
 
@@ -316,11 +369,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const response = await admin.graphql(GET_FUNCTIONS_QUERY);
       const data = await response.json() as any;
       const functions = data?.data?.shopifyFunctions?.nodes || [];
-      const ourFunction = functions.find((f: any) => 
+      const ourFunction = functions.find((f: any) =>
         f.title?.toLowerCase().includes("discount") || f.apiType?.toLowerCase().includes("discount")
       ) || functions[0];
       functionId = ourFunction?.id || null;
-    } catch {}
+    } catch { }
 
     if (!functionId) return json({ errors: { general: "Shopify Function not found." }, success: false, actionType: "create" });
 
@@ -352,15 +405,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       const mfs: any[] = [
         { ownerId: discountGid, namespace: "$app", key: "discount_config", type: "json", value: metafieldValue },
+        { ownerId: discountGid, namespace: "$app", key: "payment_type", type: "single_line_text_field", value: paymentType || "None" },
       ];
-      if (paymentType) {
-        mfs.push({ ownerId: discountGid, namespace: "threshold_flow", key: "payment_type", type: "single_line_text_field", value: paymentType });
-      }
-      await admin.graphql(SET_METAFIELD_MUTATION, { variables: { metafields: mfs } });
-    } catch {}
+      console.log("Saving create metafields with mfs:", JSON.stringify(mfs, null, 2));
+      const res = await admin.graphql(SET_METAFIELD_MUTATION, { variables: { metafields: mfs } });
+      const resJson = await res.json();
+      console.log("create metafieldsSet response:", JSON.stringify(resJson, null, 2));
+    } catch { }
 
     await prisma.discountThreshold.create({
-      data: { shop, discountGid, discountCode: code, title, discountType, percentage, fixedValue, totalThreshold: threshold, remainingAmount: threshold, discountCategory, specialProducts, paymentType: paymentType || null, isActive: true, startDate, endDate, version: 0 },
+      data: { shop, discountGid, discountCode: code, title, discountType, percentage, fixedValue, totalThreshold: threshold, remainingAmount: threshold, discountCategory, specialProducts, paymentType: paymentType || "None", isActive: true, startDate, endDate, version: 0 },
     });
 
     return json({ success: true, actionType: "create" });
@@ -377,13 +431,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const discountCategory = formData.get("discountCategory") as string;
     const specialProducts = formData.get("specialProducts") as string;
     const paymentType = (formData.get("paymentType") as string) || "";
-    
+
     const discount = await prisma.discountThreshold.findFirst({ where: { id, shop } });
     if (!discount) return json({ errors: { general: "Discount not found" }, success: false, actionType: "edit" });
 
     const errors: Record<string, string> = {};
     if (!title) errors.title = "Title is required";
-    
+
     let percentage: number | null = null;
     let fixedValue: number | null = null;
 
@@ -411,7 +465,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } else {
       startDate = new Date();
     }
-    
+
     let endDate: Date | null = null;
     if (endDateStr) {
       const parts = endDateStr.split('-');
@@ -421,6 +475,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (endDate && endDate <= startDate) {
       errors.endDate = "End date must be after the start date";
     }
+
+    let specialProductsParsed: any[] = [];
+    if (specialProducts) {
+      try {
+        specialProductsParsed = JSON.parse(specialProducts);
+      } catch (e) {}
+    }
+    specialProductsParsed.forEach((item) => {
+      if (!item.productId) {
+        errors[`specialProduct_${item.id}`] = "Please select a product";
+      }
+    });
 
     if (Object.keys(errors).length > 0) return json({ errors, success: false, actionType: "edit" });
 
@@ -440,18 +506,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
       const mfs: any[] = [
         { ownerId: discount.discountGid, namespace: "$app", key: "discount_config", type: "json", value: metafieldValue },
+        { ownerId: discount.discountGid, namespace: "$app", key: "payment_type", type: "single_line_text_field", value: paymentType || "None" },
       ];
-      if (paymentType) {
-        mfs.push({ ownerId: discount.discountGid, namespace: "threshold_flow", key: "payment_type", type: "single_line_text_field", value: paymentType });
-      }
-      await admin.graphql(SET_METAFIELD_MUTATION, { variables: { metafields: mfs } });
+      console.log("Saving metafields with mfs:", JSON.stringify(mfs, null, 2));
+      const res = await admin.graphql(SET_METAFIELD_MUTATION, { variables: { metafields: mfs } });
+      const resJson = await res.json();
+      console.log("metafieldsSet response:", JSON.stringify(resJson, null, 2));
     } catch (e) {
       console.error("Error updating discount in Shopify:", e);
     }
 
     await prisma.discountThreshold.update({
       where: { id },
-      data: { title, discountType, percentage, fixedValue, totalThreshold: newTotalThreshold, remainingAmount: newRemaining, discountCategory, specialProducts, paymentType: paymentType || null, startDate, endDate, version: { increment: 1 } },
+      data: { title, discountType, percentage, fixedValue, totalThreshold: newTotalThreshold, remainingAmount: newRemaining, discountCategory, specialProducts, paymentType: paymentType || "None", startDate, endDate, version: { increment: 1 } },
     });
 
     return json({ success: true, actionType: "edit" });
@@ -589,7 +656,7 @@ export default function Index() {
         setToastActive(true);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionData]);
 
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[] | null>(null);
@@ -621,7 +688,7 @@ export default function Index() {
   const [queryValue, setQueryValue] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
-  
+
   const tabs = ['All', 'Active', 'Scheduled', 'Expired'].map((item, index) => ({
     content: item,
     id: `${item}-${index}`,
@@ -630,14 +697,14 @@ export default function Index() {
 
   const filteredDiscounts = discounts.filter((d: any) => {
     const status = discountStatuses[d.id] || (d.isActive ? 'ACTIVE' : 'INACTIVE');
-    
+
     if (queryValue && !d.title.toLowerCase().includes(queryValue.toLowerCase()) && !d.discountCode.toLowerCase().includes(queryValue.toLowerCase())) {
       return false;
     }
     if (selectedTab === 1 && status !== 'ACTIVE') return false;
     if (selectedTab === 2 && status !== 'SCHEDULED') return false;
     if (selectedTab === 3 && status !== 'EXPIRED') return false;
-    
+
     return true;
   });
 
@@ -649,7 +716,7 @@ export default function Index() {
   const startIndex = filteredDiscounts.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const endIndex = Math.min(currentPage * PAGE_SIZE, filteredDiscounts.length);
 
-  const {selectedResources, allResourcesSelected, handleSelectionChange, clearSelection} = useIndexResourceState(filteredDiscounts as any);
+  const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } = useIndexResourceState(filteredDiscounts as any);
 
   const handleBulkAction = useCallback((intent: string) => {
     const formData = new FormData();
@@ -754,7 +821,7 @@ export default function Index() {
 
   function DateSelectionPicker({ label, dateStr, onChange, helpText, error }: { label: string, dateStr: string, onChange: (date: string) => void, helpText?: string, error?: string }) {
     const [popoverActive, setPopoverActive] = useState(false);
-  
+
     // Default to today if dateStr is empty, or parse DD-MM-YYYY
     let selectedDate = new Date();
     if (dateStr) {
@@ -766,15 +833,15 @@ export default function Index() {
     if (isNaN(selectedDate.getTime())) {
       selectedDate = new Date();
     }
-    
+
     // Polaris DatePicker expects { month, year } object for the view
     const [{ month, year }, setDate] = useState({
       month: selectedDate.getMonth(),
       year: selectedDate.getFullYear(),
     });
-  
+
     const handleMonthChange = useCallback((month: number, year: number) => setDate({ month, year }), []);
-  
+
     const handleDateSelection = useCallback(
       ({ end: newSelectedDate }: { end: Date }) => {
         setPopoverActive(false);
@@ -786,9 +853,9 @@ export default function Index() {
       },
       [onChange]
     );
-  
+
     const displayValue = dateStr ? dateStr : "Select Date (DD-MM-YYYY)";
-  
+
     return (
       <Popover
         active={popoverActive}
@@ -804,7 +871,7 @@ export default function Index() {
             <TextField
               label={label}
               value={displayValue}
-              onChange={() => {}}
+              onChange={() => { }}
               onFocus={() => setPopoverActive(true)}
               autoComplete="off"
               helpText={helpText}
@@ -812,7 +879,7 @@ export default function Index() {
               prefix={<Icon source={CalendarIcon} />}
             />
             {/* Hidden overlay to capture clicks without interfering with input styles */}
-            <div 
+            <div
               style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, cursor: 'pointer', zIndex: 10 }}
               onClick={() => setPopoverActive(!popoverActive)}
             />
@@ -846,9 +913,9 @@ export default function Index() {
 
   return (
     <Frame>
-      <Page 
-        fullWidth 
-        title="Discount Threshold" 
+      <Page
+        fullWidth
+        title="Discount Threshold"
         primaryAction={{ content: "Create Discount", onAction: () => setView("create", undefined) }}
         secondaryActions={[
           {
@@ -875,20 +942,20 @@ export default function Index() {
                   <IndexFilters
                     sortOptions={[]}
                     sortSelected={[]}
-                    onSort={() => {}}
+                    onSort={() => { }}
                     queryValue={queryValue}
                     queryPlaceholder="Searching in all"
                     onQueryChange={setQueryValue}
                     onQueryClear={() => setQueryValue('')}
                     primaryAction={{ type: 'save', onAction: async () => true, disabled: false, loading: false }}
-                    cancelAction={{ onAction: () => {}, disabled: false, loading: false }}
+                    cancelAction={{ onAction: () => { }, disabled: false, loading: false }}
                     tabs={tabs}
                     selected={selectedTab}
                     onSelect={setSelectedTab}
                     canCreateNewView={false}
                     filters={[]}
                     appliedFilters={[]}
-                    onClearAll={() => {}}
+                    onClearAll={() => { }}
                     mode={mode}
                     setMode={setMode}
                   />
@@ -979,7 +1046,12 @@ export default function Index() {
   );
 }
 
-function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, DateSelectionPicker }: Record<string, any>) {
+function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, currencyCode, DateSelectionPicker }: Record<string, any>) {
+  const [errors, setErrors] = useState(propErrors || {});
+  useEffect(() => {
+    setErrors(propErrors || {});
+  }, [propErrors]);
+
   const [title, setTitle] = useState("");
   const [code, setCode] = useState("");
   const [discountType, setDiscountType] = useState("percentage");
@@ -988,37 +1060,105 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
   const [threshold, setThreshold] = useState("");
   const [discountCategory, setDiscountCategory] = useState(DISCOUNT_CATEGORIES[0]);
   const [paymentType, setPaymentType] = useState("");
-  const handleCodeChange = useCallback((v: string) => setCode(v.toUpperCase().replace(/[^A-Z0-9_-]/g, "")), []);
 
-  const [specialProducts, setSpecialProducts] = useState<Array<{id: string, productId: string, productTitle: string, category: string}>>([]);
+  const handleTitleChange = useCallback((v: string) => {
+    setTitle(v);
+    if (v.trim()) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.title;
+        return next;
+      });
+    }
+  }, []);
+
+  const handleCodeChange = useCallback((v: string) => {
+    const uppercaseVal = v.toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    setCode(uppercaseVal);
+    if (uppercaseVal.length >= 3) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.code;
+        return next;
+      });
+    }
+  }, []);
+
+  const handlePercentageChange = useCallback((v: string) => {
+    setPercentage(v);
+    const parsed = parseFloat(v);
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 100) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.percentage;
+        return next;
+      });
+    }
+  }, []);
+
+  const handleFixedValueChange = useCallback((v: string) => {
+    setFixedValue(v);
+    const parsed = parseFloat(v);
+    if (!isNaN(parsed) && parsed > 0) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.fixedValue;
+        return next;
+      });
+    }
+  }, []);
+
+  const handleThresholdChange = useCallback((v: string) => {
+    setThreshold(v);
+    const parsed = parseFloat(v);
+    if (!isNaN(parsed) && parsed > 0) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.threshold;
+        return next;
+      });
+    }
+  }, []);
+
+  const [specialProducts, setSpecialProducts] = useState<Array<{ id: string, productId: string, productTitle: string, category: string, quantity: number, variants?: any[] }>>([]);
   const handleAddProductRow = useCallback(() => {
-    setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0] }]);
+    setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0], quantity: 1 }]);
   }, []);
   const handleRemoveProductRow = useCallback((id: string) => {
     setSpecialProducts((prev) => prev.filter(row => row.id !== id));
   }, []);
   const handleProductSelect = useCallback(async (id: string) => {
     const currentRow = specialProducts.find(r => r.id === id);
-    const selectionIds = currentRow?.productId ? [{ 
+    const selectionIds = currentRow?.productId ? [{
       id: currentRow.productId,
       variants: currentRow.variants || []
     }] : [];
-    const selected = await window.shopify.resourcePicker({ 
-      type: 'product', 
-      multiple: false, 
+    const selected = await window.shopify.resourcePicker({
+      type: 'product',
+      multiple: false,
       action: 'select',
       selectionIds
     });
     if (selected && selected.length > 0) {
       const selectedVariants = selected[0].variants ? selected[0].variants.map((v: any) => ({ id: v.id })) : [];
-      setSpecialProducts((prev) => prev.map(row => 
+      setSpecialProducts((prev) => prev.map(row =>
         row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: selectedVariants } : row
       ));
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next[`specialProduct_${id}`];
+        return next;
+      });
     }
   }, [specialProducts]);
   const handleCategoryChange = useCallback((id: string, value: string) => {
-    setSpecialProducts((prev) => prev.map(row => 
+    setSpecialProducts((prev) => prev.map(row =>
       row.id === id ? { ...row, category: value } : row
+    ));
+  }, []);
+  const handleQuantityChange = useCallback((id: string, value: string) => {
+    setSpecialProducts((prev) => prev.map(row =>
+      row.id === id ? { ...row, quantity: parseInt(value, 10) || 1 } : row
     ));
   }, []);
 
@@ -1041,6 +1181,13 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
 
   const handleStartDateChange = useCallback((v: string) => {
     setStartDate(v);
+    if (v) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.startDate;
+        return next;
+      });
+    }
     if (!endDateChanged && v) {
       // Parse DD-MM-YYYY
       const parts = v.split('-');
@@ -1060,6 +1207,13 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
   const handleEndDateChange = useCallback((v: string) => {
     setEndDate(v);
     setEndDateChanged(true);
+    if (v) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.endDate;
+        return next;
+      });
+    }
   }, []);
 
   return (
@@ -1074,7 +1228,7 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
                 <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">Discount Details</Text>
                   <FormLayout>
-                    <TextField label="Name" name="title" value={title} onChange={setTitle} helpText="Internal name for this discount" error={errors.title} autoComplete="off" />
+                    <TextField label="Name" name="title" value={title} onChange={handleTitleChange} helpText="Internal name for this discount" error={errors.title} autoComplete="off" />
                     <TextField label="Coupon Code" name="code" value={code} onChange={handleCodeChange} helpText="Customers enter this code at checkout. Uppercase only." error={errors.code} autoComplete="off" />
                   </FormLayout>
                 </BlockStack>
@@ -1083,32 +1237,42 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
                 <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">Discount Configuration</Text>
                   <FormLayout>
-                    <Select label="Discount Type" name="discountType" options={[{label: "Percentage", value: "percentage"}, {label: "Fixed Amount", value: "fixed"}]} value={discountType} onChange={setDiscountType} />
+                    <Select label="Discount Type" name="discountType" options={[{ label: "Percentage", value: "percentage" }, { label: "Fixed Amount", value: "fixed" }]} value={discountType} onChange={setDiscountType} />
                     <Select label="Discount Category" name="discountCategory" options={DISCOUNT_CATEGORIES} value={discountCategory} onChange={setDiscountCategory} />
-                    {/* <Select
+                    <Select
                       label="Payment Method (Optional)"
                       name="paymentType"
                       options={[
                         { label: "-- No restriction --", value: "" },
                         { label: "Credit Card", value: "Credit Card" },
-                        { label: "Net", value: "Net" },
+                        { label: "Net 10", value: "Net 10" },
+                        { label: "Net 30", value: "Net 30" },
+                        { label: "Net 31", value: "Net 31" },
+                        { label: "Net 60", value: "Net 60" },
+                        { label: "Net 180", value: "Net 180" },
+                        { label: "1% 10, Net 30", value: "1% 10, Net 30" },
+                        { label: "1% 15, Net 30", value: "1% 15, Net 30" },
+                        { label: "2% 15, Net 30", value: "2% 15, Net 30" },
+                        { label: "2% 30, Net 31", value: "2% 30, Net 31" },
+                        { label: "2% 31, Net 31", value: "2% 31, Net 31" },
                       ]}
                       value={paymentType}
                       onChange={setPaymentType}
                       helpText="If selected, restricts checkout to this payment method"
-                    /> */}
+                    />
+
                     <FormLayout.Group>
                       {discountType === "percentage" ? (
-                        <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={setPercentage} suffix="%" type="number" helpText="Percentage off the order subtotal (1–100)" error={errors.percentage} autoComplete="off" />
+                        <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={handlePercentageChange} suffix="%" type="number" helpText="Percentage off the order subtotal (1–100)" error={errors.percentage} autoComplete="off" />
                       ) : (() => {
                         const fixedNum = parseFloat(fixedValue);
                         const threshNum = parseFloat(threshold);
                         const fixedClientError = (!isNaN(fixedNum) && !isNaN(threshNum) && fixedNum > threshNum)
                           ? "Fixed discount amount cannot be greater than the total threshold budget"
                           : errors.fixedValue;
-                        return <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={setFixedValue} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={fixedClientError} autoComplete="off" />;
+                        return <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={handleFixedValueChange} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={fixedClientError} autoComplete="off" />;
                       })()}
-                      <TextField label="Threshold Budget" name="threshold" value={threshold} onChange={setThreshold} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Maximum total discount amount" error={errors.threshold} autoComplete="off" />
+                      <TextField label="Threshold Budget" name="threshold" value={threshold} onChange={handleThresholdChange} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Maximum total discount amount" error={errors.threshold} autoComplete="off" />
                     </FormLayout.Group>
                     <FormLayout.Group>
                       <DateSelectionPicker label="Start Date" dateStr={startDate} onChange={handleStartDateChange} error={errors.startDate} />
@@ -1119,27 +1283,40 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
               </Card>
               <Card>
                 <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">Special Products Mapping</Text>
+                  <Text as="h2" variant="headingMd">Free Products Mapping</Text>
                   {specialProducts.map((row) => (
-                    <InlineStack key={row.id} gap="300" blockAlign="end">
+                    <InlineStack key={row.id} gap="300" blockAlign="start">
                       <Box minWidth="300px">
-                        <TextField 
-                          label="Product" 
-                          value={row.productTitle} 
-                          onChange={() => {}} 
-                          autoComplete="off" 
-                          connectedRight={<Button onClick={() => handleProductSelect(row.id)}>Browse</Button>} 
+                        <TextField
+                          label="Product"
+                          value={row.productTitle}
+                          onChange={() => { }}
+                          autoComplete="off"
+                          connectedRight={<Button onClick={() => handleProductSelect(row.id)}>Browse</Button>}
+                          error={errors[`specialProduct_${row.id}`]}
+                        />
+                      </Box>
+                      <Box minWidth="100px">
+                        <TextField
+                          label="Quantity"
+                          type="number"
+                          value={row.quantity !== undefined ? String(row.quantity) : "1"}
+                          onChange={(v) => handleQuantityChange(row.id, v)}
+                          autoComplete="off"
+                          min={1}
                         />
                       </Box>
                       <Box minWidth="250px">
-                        <Select 
-                          label="Discount Category" 
-                          options={DISCOUNT_CATEGORIES} 
-                          value={row.category} 
-                          onChange={(v) => handleCategoryChange(row.id, v)} 
+                        <Select
+                          label="Discount Category"
+                          options={DISCOUNT_CATEGORIES}
+                          value={row.category}
+                          onChange={(v) => handleCategoryChange(row.id, v)}
                         />
                       </Box>
-                      <Button tone="critical" onClick={() => handleRemoveProductRow(row.id)}>Remove</Button>
+                      <div style={{ marginTop: "24px" }}>
+                        <Button tone="critical" onClick={() => handleRemoveProductRow(row.id)}>Remove</Button>
+                      </div>
                     </InlineStack>
                   ))}
                   <InlineStack>
@@ -1161,49 +1338,117 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
   );
 }
 
-function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCode, DateSelectionPicker }: Record<string, any>) {
+function EditDiscountView({ discount, onCancel, errors: propErrors, isSubmitting, currencyCode, DateSelectionPicker }: Record<string, any>) {
+  const [errors, setErrors] = useState(propErrors || {});
+  useEffect(() => {
+    setErrors(propErrors || {});
+  }, [propErrors]);
+
   const [title, setTitle] = useState(discount.title);
   const [discountType, setDiscountType] = useState(discount.discountType || "percentage");
   const [percentage, setPercentage] = useState(discount.percentage ? String(discount.percentage) : "");
   const [fixedValue, setFixedValue] = useState(discount.fixedValue ? String(discount.fixedValue) : "");
   const [threshold, setThreshold] = useState(String(discount.totalThreshold));
   const [discountCategory, setDiscountCategory] = useState(discount.discountCategory || DISCOUNT_CATEGORIES[0]);
-  const [paymentType, setPaymentType] = useState(discount.paymentType || "");
+  const [paymentType, setPaymentType] = useState(discount.paymentType && discount.paymentType !== "None" ? discount.paymentType : "");
 
-  const [specialProducts, setSpecialProducts] = useState<Array<{id: string, productId: string, productTitle: string, category: string}>>(() => {
+  const handleTitleChange = useCallback((v: string) => {
+    setTitle(v);
+    if (v.trim()) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.title;
+        return next;
+      });
+    }
+  }, []);
+
+  const handlePercentageChange = useCallback((v: string) => {
+    setPercentage(v);
+    const parsed = parseFloat(v);
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 100) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.percentage;
+        return next;
+      });
+    }
+  }, []);
+
+  const handleFixedValueChange = useCallback((v: string) => {
+    setFixedValue(v);
+    const parsed = parseFloat(v);
+    if (!isNaN(parsed) && parsed > 0) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.fixedValue;
+        return next;
+      });
+    }
+  }, []);
+
+  const handleThresholdChange = useCallback((v: string) => {
+    setThreshold(v);
+    const parsed = parseFloat(v);
+    if (!isNaN(parsed) && parsed > 0) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.threshold;
+        return next;
+      });
+    }
+  }, []);
+
+  const [specialProducts, setSpecialProducts] = useState<Array<{ id: string, productId: string, productTitle: string, category: string, quantity: number, variants?: any[] }>>(() => {
     if (discount.specialProducts) {
-      try { return JSON.parse(discount.specialProducts); } catch(e) {}
+      try {
+        const parsed = JSON.parse(discount.specialProducts);
+        return parsed.map((item: any) => ({
+          ...item,
+          quantity: typeof item.quantity === 'number' ? item.quantity : 1
+        }));
+      } catch (e) { }
     }
     return [];
   });
   const handleAddProductRow = useCallback(() => {
-    setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0] }]);
+    setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0], quantity: 1 }]);
   }, []);
   const handleRemoveProductRow = useCallback((id: string) => {
     setSpecialProducts((prev) => prev.filter(row => row.id !== id));
   }, []);
   const handleProductSelect = useCallback(async (id: string) => {
     const currentRow = specialProducts.find(r => r.id === id);
-    const selectionIds = currentRow?.productId ? [{ 
+    const selectionIds = currentRow?.productId ? [{
       id: currentRow.productId,
       variants: currentRow.variants || []
     }] : [];
-    const selected = await window.shopify.resourcePicker({ 
-      type: 'product', 
-      multiple: false, 
+    const selected = await window.shopify.resourcePicker({
+      type: 'product',
+      multiple: false,
       action: 'select',
       selectionIds
     });
     if (selected && selected.length > 0) {
       const selectedVariants = selected[0].variants ? selected[0].variants.map((v: any) => ({ id: v.id })) : [];
-      setSpecialProducts((prev) => prev.map(row => 
+      setSpecialProducts((prev) => prev.map(row =>
         row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: selectedVariants } : row
       ));
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next[`specialProduct_${id}`];
+        return next;
+      });
     }
   }, [specialProducts]);
   const handleCategoryChange = useCallback((id: string, value: string) => {
-    setSpecialProducts((prev) => prev.map(row => 
+    setSpecialProducts((prev) => prev.map(row =>
       row.id === id ? { ...row, category: value } : row
+    ));
+  }, []);
+  const handleQuantityChange = useCallback((id: string, value: string) => {
+    setSpecialProducts((prev) => prev.map(row =>
+      row.id === id ? { ...row, quantity: parseInt(value, 10) || 1 } : row
     ));
   }, []);
 
@@ -1231,6 +1476,13 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
 
   const handleStartDateChange = useCallback((v: string) => {
     setStartDate(v);
+    if (v) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.startDate;
+        return next;
+      });
+    }
     if (!endDateChanged && v) {
       // Parse DD-MM-YYYY
       const parts = v.split('-');
@@ -1250,6 +1502,13 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
   const handleEndDateChange = useCallback((v: string) => {
     setEndDate(v);
     setEndDateChanged(true);
+    if (v) {
+      setErrors((prev: any) => {
+        const next = { ...prev };
+        delete next.endDate;
+        return next;
+      });
+    }
   }, []);
 
   return (
@@ -1268,7 +1527,7 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
                     <Badge tone="info">{discount.discountCode}</Badge>
                   </InlineStack>
                   <FormLayout>
-                    <TextField label="Name" name="title" value={title} onChange={setTitle} error={errors.title} autoComplete="off" />
+                    <TextField label="Name" name="title" value={title} onChange={handleTitleChange} error={errors.title} autoComplete="off" />
                   </FormLayout>
                 </BlockStack>
               </Card>
@@ -1299,32 +1558,42 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
                   </InlineGrid>
                   <Divider />
                   <FormLayout>
-                     <Select label="Discount Type" name="discountType" options={[{label: "Percentage", value: "percentage"}, {label: "Fixed Amount", value: "fixed"}]} value={discountType} onChange={setDiscountType} />
-                     <Select label="Discount Category" name="discountCategory" options={DISCOUNT_CATEGORIES} value={discountCategory} onChange={setDiscountCategory} />
-                     {/* <Select
+                    <Select label="Discount Type" name="discountType" options={[{ label: "Percentage", value: "percentage" }, { label: "Fixed Amount", value: "fixed" }]} value={discountType} onChange={setDiscountType} />
+                    <Select label="Discount Category" name="discountCategory" options={DISCOUNT_CATEGORIES} value={discountCategory} onChange={setDiscountCategory} />
+                    <Select
                       label="Payment Method (Optional)"
                       name="paymentType"
                       options={[
                         { label: "-- No restriction --", value: "" },
                         { label: "Credit Card", value: "Credit Card" },
-                        { label: "Net", value: "Net" },
+                        { label: "Net 10", value: "Net 10" },
+                        { label: "Net 30", value: "Net 30" },
+                        { label: "Net 31", value: "Net 31" },
+                        { label: "Net 60", value: "Net 60" },
+                        { label: "Net 180", value: "Net 180" },
+                        { label: "1% 10, Net 30", value: "1% 10, Net 30" },
+                        { label: "1% 15, Net 30", value: "1% 15, Net 30" },
+                        { label: "2% 15, Net 30", value: "2% 15, Net 30" },
+                        { label: "2% 30, Net 31", value: "2% 30, Net 31" },
+                        { label: "2% 31, Net 31", value: "2% 31, Net 31" },
                       ]}
                       value={paymentType}
                       onChange={setPaymentType}
                       helpText="If selected, restricts checkout to this payment method"
-                    /> */}
+                    />
+
                     <FormLayout.Group>
                       {discountType === "percentage" ? (
-                        <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={setPercentage} suffix="%" type="number" error={errors.percentage} autoComplete="off" />
+                        <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={handlePercentageChange} suffix="%" type="number" error={errors.percentage} autoComplete="off" />
                       ) : (() => {
                         const fixedNum = parseFloat(fixedValue);
                         const threshNum = parseFloat(threshold);
                         const fixedClientError = (!isNaN(fixedNum) && !isNaN(threshNum) && fixedNum > threshNum)
                           ? "Fixed discount amount cannot be greater than the total threshold budget"
                           : errors.fixedValue;
-                        return <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={setFixedValue} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={fixedClientError} autoComplete="off" />;
+                        return <TextField label="Fixed Discount Amount" name="fixedValue" value={fixedValue} onChange={handleFixedValueChange} prefix={getCurrencySymbol(currencyCode)} type="number" helpText="Flat deduction from subtotal" error={fixedClientError} autoComplete="off" />;
                       })()}
-                      <TextField label="Total Threshold Budget" name="threshold" value={threshold} onChange={setThreshold} prefix={getCurrencySymbol(currencyCode)} type="number" helpText={`Must be at least ${formatCurrency(discount.usedAmount, currencyCode)} (already used)`} error={errors.threshold} autoComplete="off" />
+                      <TextField label="Total Threshold Budget" name="threshold" value={threshold} onChange={handleThresholdChange} prefix={getCurrencySymbol(currencyCode)} type="number" helpText={`Must be at least ${formatCurrency(discount.usedAmount, currencyCode)} (already used)`} error={errors.threshold} autoComplete="off" />
                     </FormLayout.Group>
                     <FormLayout.Group>
                       <DateSelectionPicker label="Start Date" dateStr={startDate} onChange={handleStartDateChange} error={errors.startDate} />
@@ -1332,30 +1601,43 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
                     </FormLayout.Group>
                   </FormLayout>
                 </BlockStack>
-              </Card>    
+              </Card>
               <Card>
                 <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">Special Products Mapping</Text>
+                  <Text as="h2" variant="headingMd">Free Product Mapping</Text>
                   {specialProducts.map((row) => (
-                    <InlineStack key={row.id} gap="300" blockAlign="end">
+                    <InlineStack key={row.id} gap="300" blockAlign="start">
                       <Box minWidth="300px">
-                        <TextField 
-                          label="Product" 
-                          value={row.productTitle} 
-                          onChange={() => {}} 
-                          autoComplete="off" 
-                          connectedRight={<Button onClick={() => handleProductSelect(row.id)}>Browse</Button>} 
+                        <TextField
+                          label="Product"
+                          value={row.productTitle}
+                          onChange={() => { }}
+                          autoComplete="off"
+                          connectedRight={<Button onClick={() => handleProductSelect(row.id)}>Browse</Button>}
+                          error={errors[`specialProduct_${row.id}`]}
+                        />
+                      </Box>
+                      <Box minWidth="100px">
+                        <TextField
+                          label="Quantity"
+                          type="number"
+                          value={row.quantity !== undefined ? String(row.quantity) : "1"}
+                          onChange={(v) => handleQuantityChange(row.id, v)}
+                          autoComplete="off"
+                          min={1}
                         />
                       </Box>
                       <Box minWidth="250px">
-                        <Select 
-                          label="Discount Category" 
-                          options={DISCOUNT_CATEGORIES} 
-                          value={row.category} 
-                          onChange={(v) => handleCategoryChange(row.id, v)} 
+                        <Select
+                          label="Discount Category"
+                          options={DISCOUNT_CATEGORIES}
+                          value={row.category}
+                          onChange={(v) => handleCategoryChange(row.id, v)}
                         />
                       </Box>
-                      <Button tone="critical" onClick={() => handleRemoveProductRow(row.id)}>Remove</Button>
+                      <div style={{ marginTop: "24px" }}>
+                        <Button tone="critical" onClick={() => handleRemoveProductRow(row.id)}>Remove</Button>
+                      </div>
                     </InlineStack>
                   ))}
                   <InlineStack>

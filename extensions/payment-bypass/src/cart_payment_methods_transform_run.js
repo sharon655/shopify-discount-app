@@ -13,7 +13,7 @@ const NO_CHANGES = {
 };
 
 /**
- * Reads the threshold_flow.payment_type metafield from applied discounts.
+ * Reads the $app.payment_type metafield from applied discounts.
  * "Credit Card" → hide all Net/manual payment methods
  * "Net"         → hide all standard gateways (card, PayPal, etc.)
  * blank/none    → no changes
@@ -22,13 +22,32 @@ const NO_CHANGES = {
  * @returns {CartPaymentMethodsTransformRunResult}
  */
 export function cartPaymentMethodsTransformRun(input) {
-  const discountApplications = input?.cart?.discountApplications ?? [];
+  console.error("----- cartPaymentMethodsTransformRun extension loaded & executing -----");
+
+  const discountApplications = [
+    ...(input?.cart?.discountApplications ?? [])
+  ];
+
+  const lines = input?.cart?.lines ?? [];
+  for (const line of lines) {
+    const allocations = line.discountAllocations ?? [];
+    for (const alloc of allocations) {
+      if (alloc.discountApplication) {
+        discountApplications.push(alloc.discountApplication);
+      }
+    }
+  }
+
   const paymentMethods = input?.paymentMethods ?? [];
+
+  console.error("discountApplications count:", discountApplications.length);
+  console.error("discountApplications detailed:", JSON.stringify(discountApplications, null, 2));
+  console.error("paymentMethods in cart:", JSON.stringify(paymentMethods.map(m => m.name)));
 
   // Find the first discount with a payment_type metafield
   let requiredPaymentType = null;
-  console.error("Input received:", JSON.stringify(input, null, 2));
-  
+  console.error("Full Input received:", JSON.stringify(input, null, 2));
+
   for (const app of discountApplications) {
     const val = app?.metafield?.value;
     if (val && val.trim() !== "") {
@@ -38,13 +57,40 @@ export function cartPaymentMethodsTransformRun(input) {
   }
 
   console.error("Found requiredPaymentType:", requiredPaymentType);
-  if (!requiredPaymentType) return NO_CHANGES;
-
-
   const operations = [];
+  const isNetRequired = requiredPaymentType && requiredPaymentType.toLowerCase().includes("net");
 
-  if (requiredPaymentType === "Credit Card") {
-    // Hide manual/Net payment methods — keep only standard card gateways
+  if (isNetRequired) {
+    // Hide all payment methods EXCEPT those containing "net" or standard net aliases
+    for (const method of paymentMethods) {
+      const name = method.name.toLowerCase();
+      let matchesTarget = name.includes("net");
+
+      // Match standard net aliases
+      if (
+        // name.includes("bank transfer") ||
+        //name.includes("invoice") ||
+        name.includes("30") ||
+        name.includes("60") ||
+        name.includes("90")
+      ) {
+        matchesTarget = true;
+      }
+
+      if (!matchesTarget) {
+        operations.push({
+          paymentMethodHide: {
+            paymentMethodId: method.id
+          }
+        });
+      }
+    }
+  } else {
+    // Hide manual/Net/Pay Later payment methods — keep only standard card gateways
+    // This runs when:
+    // - requiredPaymentType contains "credit card" (or is not net)
+    // - No discount is applied (requiredPaymentType is null)
+    // - Discount has no payment restriction (requiredPaymentType is empty/none)
     for (const method of paymentMethods) {
       const name = method.name.toLowerCase();
       if (
@@ -53,32 +99,15 @@ export function cartPaymentMethodsTransformRun(input) {
         name.includes("invoice") ||
         name.includes("cod") ||
         name.includes("cash on delivery") ||
-        name.includes("manual")
+        name.includes("manual") ||
+        name.includes("pay later") ||
+        name.includes("paylater")
       ) {
         operations.push({ paymentMethodHide: { paymentMethodId: method.id } });
-      }
-    }
-  } else if (requiredPaymentType === "Net") {
-    // Hide all standard gateways — keep only Net/manual methods
-    for (const method of paymentMethods) {
-      const name = method.name.toLowerCase();
-      const isNetMethod =
-        name.includes("net") ||
-        name.includes("bank transfer") ||
-        name.includes("invoice") ||
-        name.includes("30") ||
-        name.includes("60") ||
-        name.includes("90");
-      if (!isNetMethod) {
-        operations.push({
-          paymentMethodHide: {
-            paymentMethodId: method.id
-          }
-        });
       }
     }
   }
 
   console.error("Operations returning:", JSON.stringify(operations, null, 2));
   return { operations };
-}
+}

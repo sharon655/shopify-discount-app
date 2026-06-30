@@ -11,7 +11,52 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
+
+  // Dynamically set shop metafield with the current app URL from process.env
+  const appUrl = process.env.SHOPIFY_APP_URL;
+  if (appUrl) {
+    try {
+      const response = await admin.graphql(`
+        query {
+          shop {
+            id
+          }
+        }
+      `);
+      const responseJson = await response.json() as any;
+      const shopId = responseJson?.data?.shop?.id;
+
+      if (shopId) {
+        const mfResponse = await admin.graphql(`
+          mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+              userErrors { field message }
+            }
+          }
+        `, {
+          variables: {
+            metafields: [{
+              ownerId: shopId,
+              namespace: "custom",
+              key: "app_url",
+              type: "single_line_text_field",
+              value: appUrl
+            }]
+          }
+        });
+        const mfResponseJson = await mfResponse.json() as any;
+        const errors = mfResponseJson?.data?.metafieldsSet?.userErrors || [];
+        if (errors.length > 0) {
+          console.error("Failed to set shop app_url metafield:", JSON.stringify(errors));
+        } else {
+          console.log("Successfully updated shop app_url metafield to:", appUrl);
+        }
+      }
+    } catch (e) {
+      console.error("Error setting shop app_url metafield:", e);
+    }
+  }
 
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };

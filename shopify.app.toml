@@ -2,7 +2,7 @@
 
 client_id = "c10d6b5feda86ab7df32b9440f1d2320"
 name = "Discount Threshold Manager"
-application_url = "https://shopify-discount-app-production.up.railway.app/"
+application_url = "https://discount-threshold-manager.up.railway.app/"
 embedded = true
 handle = "discount-threshold-manager"
 
@@ -27,7 +27,7 @@ api_version = "2025-07"
 scopes = "write_discounts,read_discounts,read_products,write_products,read_orders,write_orders"
 
 [auth]
-redirect_urls = [ "https://shopify-discount-app-production.up.railway.app/api/auth" ]
+redirect_urls = [ "https://discount-threshold-manager.up.railway.app/api/auth" ]
 
 [pos]
 embedded = false

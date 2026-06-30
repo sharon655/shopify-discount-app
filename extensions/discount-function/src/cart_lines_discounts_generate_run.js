@@ -11,9 +11,11 @@ import { OrderDiscountSelectionStrategy } from '../generated/api';
   */
 
 export function cartLinesDiscountsGenerateRun(input) {
+  console.error("----- cartLinesDiscountsGenerateRun extension loaded & executing -----");
   let config = {};
   try {
     const metafieldValue = input.discount?.metafield?.value;
+    console.error("Discount metafieldValue read:", metafieldValue);
     if (metafieldValue) {
       config = JSON.parse(metafieldValue);
     }
@@ -35,7 +37,7 @@ export function cartLinesDiscountsGenerateRun(input) {
   let specialProducts = [];
   try {
     if (config.specialProducts) specialProducts = JSON.parse(config.specialProducts);
-  } catch (e) {}
+  } catch (e) { }
 
   const lines = input.cart?.lines || [];
   let totalCalculatedDiscount = 0;
@@ -47,10 +49,10 @@ export function cartLinesDiscountsGenerateRun(input) {
 
     const productId = line.merchandise?.product?.id;
     const variantId = line.merchandise?.id;
-    
+
     // Check if the product matches any mapping
     const specialMatch = specialProducts.find(sp => sp.productId === productId);
-    
+
     // Check if variants were specifically selected. If variants array exists and is not empty, 
     // it means only specific variants were mapped. If it's empty, the whole product was mapped.
     let isVariantMapped = false;
@@ -65,8 +67,14 @@ export function cartLinesDiscountsGenerateRun(input) {
     let lineDiscount = 0;
     let message = "";
 
-    if (specialMatch && isVariantMapped) {
-      lineDiscount = amount; // 100% discount
+    const isFreeGiftLine = !!(line.attribute && line.attribute.value);
+    const isSpecialGift = !!(specialMatch && isVariantMapped && isFreeGiftLine);
+
+
+    if (isSpecialGift) {
+      const allowedQty = specialMatch.quantity || 1;
+      const discountQty = Math.min(line.quantity, allowedQty);
+      lineDiscount = parseFloat(line.cost?.amountPerQuantity?.amount || "0") * discountQty;
       message = `100% discount (${specialMatch.category})`;
     } else {
       if (type === "percentage" && percentage > 0) {
@@ -84,7 +92,8 @@ export function cartLinesDiscountsGenerateRun(input) {
         lineId: line.id,
         calculatedDiscount: lineDiscount,
         message,
-        amount
+        amount,
+        isFreeGift: isSpecialGift
       });
       totalCalculatedDiscount += lineDiscount;
     }
@@ -94,18 +103,28 @@ export function cartLinesDiscountsGenerateRun(input) {
     return { operations: [] };
   }
 
-  // Cap against threshold budget
+  // Calculate total free gift discount
+  const freeGiftDiscount = candidates
+    .filter(c => c.isFreeGift)
+    .reduce((sum, c) => sum + c.calculatedDiscount, 0);
+
+  // Remaining budget for regular discounts
+  const budgetForRegularDiscounts = Math.max(0, remainingThreshold - freeGiftDiscount);
+
+  const regularCandidates = candidates.filter(c => !c.isFreeGift);
+  const totalRegularDiscount = regularCandidates.reduce((sum, c) => sum + c.calculatedDiscount, 0);
+
   let scaleFactor = 1;
   let budgetMessageAddon = "";
-  if (totalCalculatedDiscount > remainingThreshold) {
-    scaleFactor = remainingThreshold / totalCalculatedDiscount;
+  if (totalRegularDiscount > budgetForRegularDiscounts) {
+    scaleFactor = budgetForRegularDiscounts / totalRegularDiscount;
     budgetMessageAddon = " (capped by budget)";
   }
 
   const finalCandidates = candidates.map(c => {
-    const finalAmount = c.calculatedDiscount * scaleFactor;
+    const finalAmount = c.isFreeGift ? c.calculatedDiscount : (c.calculatedDiscount * scaleFactor);
     return {
-      message: c.message + budgetMessageAddon,
+      message: c.message + (c.isFreeGift ? "" : budgetMessageAddon),
       targets: [{ cartLine: { id: c.lineId } }],
       value: {
         fixedAmount: {

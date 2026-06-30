@@ -1,8 +1,17 @@
 query CartPaymentMethodsTransformRunInput {
   cart {
     discountApplications {
-      metafield(namespace: "threshold_flow", key: "payment_type") {
+      metafield(namespace: "$app", key: "payment_type") {
         value
+      }
+    }
+    lines {
+      discountAllocations {
+        discountApplication {
+          metafield(namespace: "$app", key: "payment_type") {
+            value
+          }
+        }
       }
     }
   }

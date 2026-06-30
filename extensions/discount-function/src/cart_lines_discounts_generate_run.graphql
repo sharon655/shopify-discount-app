@@ -17,6 +17,9 @@ query RunInput {
           }
         }
       }
+      attribute(key: "free_gift_code") {
+        value
+      }
     }
     cost {
       subtotalAmount {

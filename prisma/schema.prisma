@@ -57,12 +57,19 @@ model DiscountThreshold {
 
 // Tracks which orders have been processed to prevent double-deduction
 model ProcessedOrder {
-  id          String   @id @default(cuid())
-  shop        String
-  orderId     String   // Shopify order ID
-  discountGid String
-  deducted    Float    // Amount that was deducted for this order
-  createdAt   DateTime @default(now())
+  id                      String   @id @default(cuid())
+  shop                    String
+  orderId                 String   // Shopify order ID
+  discountGid             String
+  deducted                Float    // Amount that was deducted for this order
+  discountCode            String?
+  discountType            String?
+  discountValue           Float?
+  discountCategory        String?
+  discountProductCategory String?
+  paymentType             String?
+  createdAt               DateTime @default(now())
 
   @@unique([shop, orderId, discountGid])
 }
+
