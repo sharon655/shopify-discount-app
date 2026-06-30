@@ -5,6 +5,7 @@ name = "discount-threshold-manager"
 application_url = "https://shopify-discount-app-production.up.railway.app/"
 embedded = true
 
+
 [webhooks]
 api_version = "2026-07"
 
@@ -42,3 +43,4 @@ embedded = false
 
 [build]
 automatically_update_urls_on_dev = true
+dev_command = "remix vite:dev"

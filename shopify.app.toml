@@ -33,4 +33,4 @@ redirect_urls = [ "https://discount-threshold-manager.up.railway.app/api/auth" ]
 embedded = false
 
 [build]
-automatically_update_urls_on_dev = false
+automatically_update_urls_on_dev = true

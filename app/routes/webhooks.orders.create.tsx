@@ -17,7 +17,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const order = payload as any;
   const orderId = String(order.id);
-  
+
+  console.log(`[webhook] Order placed: ${orderId} for shop: ${shop}`);
+  console.log("[webhook] Full payload discount_codes:", JSON.stringify(order.discount_codes));
+  console.log("[webhook] Full payload discount_applications:", JSON.stringify(order.discount_applications));
+
+
   console.log(`[webhook] Order placed: ${orderId} for shop: ${shop}`);
   console.log("[webhook] Full payload discount_codes:", JSON.stringify(order.discount_codes));
   console.log("[webhook] Full payload discount_applications:", JSON.stringify(order.discount_applications));
@@ -26,6 +31,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     order.discount_codes || [];
 
   if (!discountCodes || discountCodes.length === 0) {
+    console.log("[webhook] No discount codes found in order. discount_codes is empty.");
     console.log("[webhook] No discount codes found in order. discount_codes is empty.");
     return new Response(null, { status: 200 });
   }
@@ -36,6 +42,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Actual discount amount deducted from this order
     const actualDeducted = parseFloat(appliedDiscount.amount || "0");
+    console.log(`[webhook] Discount code applied: ${code}, actualDeducted: ${actualDeducted}`);
+    if (actualDeducted <= 0) {
+      console.log(`[webhook] Skipping code ${code} because actualDeducted is <= 0`);
+      continue;
+    }
     console.log(`[webhook] Discount code applied: ${code}, actualDeducted: ${actualDeducted}`);
     if (actualDeducted <= 0) {
       console.log(`[webhook] Skipping code ${code} because actualDeducted is <= 0`);
@@ -64,7 +75,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (discountRecord.specialProducts) {
         try { specialProducts = JSON.parse(discountRecord.specialProducts); } catch(e){}
       }
-      
+
       const formatTag = (category: string, identifier?: string) => {
         let tag = identifier ? `${category}_${identifier}` : `${category}`;
         if (tag.length > 40) {
@@ -87,9 +98,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const isDiscounted = item.discount_allocations && item.discount_allocations.length > 0;
         // If we can't determine, we just tag all items to be safe
         if (!isDiscounted && lineItems.some((i: any) => i.discount_allocations && i.discount_allocations.length > 0)) {
-           continue; 
+           continue;
         }
-        
+
         const pIdStr = String(item.product_id);
         const vIdStr = String(item.variant_id);
         const match = specialProducts.find((sp: any) => {
@@ -100,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           return true;
         });
         const identifier = item.sku ? item.sku : item.title;
-        
+
         if (match && match.category) {
           const formatted = formatTag(match.category, identifier);
           tagsToAdd.add(formatted);
@@ -243,7 +254,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           if (tagsToAdd.size > 0 || categoryMetafields.size > 0 || productMetafields.size > 0) {
             const orderGid = order.admin_graphql_api_id || `gid://shopify/Order/${orderId}`;
             const tagsArray = Array.from(tagsToAdd);
-            
+
             if (tagsArray.length > 0) {
               try {
                 const tagsResponse = await admin.graphql(
@@ -272,7 +283,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
 
             const metafieldsInput = [];
-            
+
             if (categoryMetafields.size > 0) {
               metafieldsInput.push({
                 ownerId: orderGid,

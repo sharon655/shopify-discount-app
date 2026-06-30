@@ -121,10 +121,10 @@
         const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
         const cls = (btn.className || '').toLowerCase();
         const name = (btn.name || '').toLowerCase();
-        
-        if (text === '+' || text === '-' || 
-            aria.includes('increase') || aria.includes('decrease') || 
-            cls.includes('plus') || cls.includes('minus') || 
+
+        if (text === '+' || text === '-' ||
+            aria.includes('increase') || aria.includes('decrease') ||
+            cls.includes('plus') || cls.includes('minus') ||
             cls.includes('qty') || cls.includes('quantity') ||
             name.includes('plus') || name.includes('minus')) {
           if (!btn.classList.contains('button--remove') && !aria.includes('remove') && text !== 'remove' && !name.includes('remove')) {
@@ -141,16 +141,16 @@
 
   function applyQtyRestrictions(cart) {
     if (!cart || !cart.items) return;
-    
+
     // Find indices (1-based) and variant IDs of items that are free gifts
     const freeGiftIndices = [];
     const freeGiftVariantIds = [];
     const variantCounts = {};
-    
+
     cart.items.forEach((item, idx) => {
       const vid = String(item.variant_id);
       variantCounts[vid] = (variantCounts[vid] || 0) + 1;
-      
+
       const isFreeGift = item.properties && (item.properties.free_gift_code || item.properties._free_gift_code);
       if (isFreeGift) {
         freeGiftIndices.push(idx + 1); // 1-based index
@@ -159,7 +159,7 @@
     });
 
     if (freeGiftIndices.length === 0) return;
-    
+
     // 1. Target by Dawn/Standard patterns (data-index or ID containing line number)
     freeGiftIndices.forEach(index => {
       const selectors = [
@@ -169,7 +169,7 @@
         `#CartItem-${index} input`,
         `#CartDrawer-Item-${index} input`
       ];
-      
+
       let foundInput = false;
       selectors.forEach(sel => {
         const input = document.querySelector(sel);
@@ -200,12 +200,12 @@
       // If the variant is not unique in the cart (e.g. we have both the regular product and the free gift),
       // we must target by key to avoid disabling the regular product's quantity input.
       if (variantCounts[vid] > 1) {
-        const matchingFreeGifts = cart.items.filter(item => 
-          String(item.variant_id) === vid && 
-          item.properties && 
+        const matchingFreeGifts = cart.items.filter(item =>
+          String(item.variant_id) === vid &&
+          item.properties &&
           (item.properties.free_gift_code || item.properties._free_gift_code)
         );
-        
+
         matchingFreeGifts.forEach(item => {
           const key = String(item.key);
           const elements = Array.from(document.querySelectorAll(`[href*="${key}"], [data-cart-item-key="${key}"], [data-key="${key}"], [id*="${key}"], [name*="${key}"]`));
@@ -263,13 +263,13 @@
 
   function disableQtyInputAndButtons(input) {
     if (!input) return;
-    
+
     // Disable the input itself
     input.readOnly = true;
     input.disabled = true;
     input.style.setProperty('pointer-events', 'none', 'important');
     input.style.setProperty('opacity', '0.6', 'important');
-    
+
     // 1. Disable inside standard wrappers
     const qtyWrapper = input.closest('quantity-input, .quantity, .qty, .js-qty, .quantity-selector, [data-quantity]');
     if (qtyWrapper) {
@@ -282,7 +282,7 @@
         }
       });
     }
-    
+
     // 2. Disable sibling buttons/controls if no standard wrapper, or in addition to wrapper
     if (input.parentNode) {
       const siblings = Array.from(input.parentNode.children);
@@ -293,11 +293,11 @@
           const cls = (sibling.className || '').toLowerCase();
           const text = (sibling.textContent || '').trim().toLowerCase();
           const aria = (sibling.getAttribute('aria-label') || '').toLowerCase();
-          
-          if (isButton || name.includes('plus') || name.includes('minus') || 
-              cls.includes('plus') || cls.includes('minus') || 
+
+          if (isButton || name.includes('plus') || name.includes('minus') ||
+              cls.includes('plus') || cls.includes('minus') ||
               cls.includes('qty') || cls.includes('quantity') ||
-              text === '+' || text === '-' || 
+              text === '+' || text === '-' ||
               aria.includes('increase') || aria.includes('decrease')) {
             if (!sibling.classList.contains('button--remove') && !aria.includes('remove') && text !== 'remove' && !name.includes('remove')) {
               if (sibling.tagName === 'BUTTON') {
@@ -1011,10 +1011,10 @@
   window.addEventListener('click', function(e) {
     const removeBtn = e.target.closest('.button--remove, a[href*="change"], [class*="remove" i], [id*="remove" i]');
     if (!removeBtn) return;
-    
+
     const itemContainer = removeBtn.closest('.cart-item, .cart__item, [data-cart-item], tr, .cart-row, .cart-line-item');
     if (!itemContainer) return;
-    
+
     const html = itemContainer.innerHTML;
     const match = html.match(/free_gift_code["'\s:]+([^"'\s<]+)/i) || html.match(/_free_gift_code["'\s:]+([^"'\s<]+)/i);
     if (match) {
