@@ -12,6 +12,21 @@ import { CalendarIcon, ClipboardIcon, CheckIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
+const DISCOUNT_CATEGORIES = [
+  "Sales Discount",
+  "SPIFF Program Discount",
+  "Special Product Discount",
+  "In Store Demo Discount",
+  "Education, Music and Religious Discount",
+  "Staff Discount",
+  "Artist Program",
+  "Marketing Giveaways",
+  "RMA",
+  "Non Warranty Service",
+  "Other Service Expense",
+  "Product Development",
+];
+
 // After activating a discount that has a future startDate, Shopify sets it to ACTIVE.
 // We must re-apply the original startsAt so Shopify re-classifies it as SCHEDULED.
 async function restoreStartsAtIfFuture(admin: any, discountGid: string, startDate: Date | null) {
@@ -141,6 +156,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ success: true, actionType: "delete" });
   }
 
+  if (intent === "activatePaymentCustomization") {
+    try {
+      const response = await admin.graphql(GET_FUNCTIONS_QUERY);
+      const data = await response.json() as any;
+      const functions = data?.data?.shopifyFunctions?.nodes || [];
+      const paymentFunction = functions.find((f: any) => 
+        f.apiType?.toLowerCase() === "payment_customization" || f.title?.toLowerCase().includes("payment") || f.title?.toLowerCase().includes("bypass")
+      );
+      if (!paymentFunction) return json({ success: false, errors: { general: "Payment customization function not found in shopifyFunctions" } });
+
+      await admin.graphql(
+        `mutation paymentCustomizationCreate($input: PaymentCustomizationInput!) {
+          paymentCustomizationCreate(paymentCustomization: $input) {
+            paymentCustomization { id }
+            userErrors { field message }
+          }
+        }`,
+        { variables: { input: { functionId: paymentFunction.id, title: "Discount Payment Rules", enabled: true } } }
+      );
+      return json({ success: true, actionType: "activatePaymentCustomization" });
+    } catch (e: any) {
+      return json({ success: false, errors: { general: e.message } });
+    }
+  }
+
   if (intent === "bulkActivate" || intent === "bulkDeactivate" || intent === "bulkDelete") {
     const ids = JSON.parse(formData.get("ids") as string || "[]");
     if (!Array.isArray(ids) || ids.length === 0) return json({ success: false, actionType: intent, errors: { general: "No discounts selected" } });
@@ -220,6 +260,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const thresholdStr = formData.get("threshold") as string;
     const startDateStr = formData.get("startDate") as string;
     const endDateStr = formData.get("endDate") as string;
+    const discountCategory = formData.get("discountCategory") as string;
+    const specialProducts = formData.get("specialProducts") as string;
+    const paymentType = (formData.get("paymentType") as string) || "";
 
     const errors: Record<string, string> = {};
     if (!title) errors.title = "Title is required";
@@ -288,13 +331,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           discount: {
             title, code, startsAt: startDate.toISOString(), ...(endDate ? { endsAt: endDate.toISOString() } : {}), functionId,
             combinesWith: { orderDiscounts: false, productDiscounts: false, shippingDiscounts: false },
-            discountClasses: ["ORDER"],
+            discountClasses: ["PRODUCT"],
           }
         }
       });
       const data = await response.json() as any;
       const userErrors = data?.data?.discountCodeAppCreate?.userErrors || [];
-      if (userErrors.length > 0) return json({ errors: { general: userErrors[0].message }, success: false, actionType: "create" });
+      if (userErrors.length > 0) {
+        const fieldName = userErrors[0].field ? userErrors[0].field.join(".") : "";
+        return json({ errors: { general: fieldName ? `${fieldName} ${userErrors[0].message}` : userErrors[0].message }, success: false, actionType: "create" });
+      }
       discountGid = data?.data?.discountCodeAppCreate?.codeAppDiscount?.discountId;
     } catch (e: any) {
       return json({ errors: { general: e.message }, success: false, actionType: "create" });
@@ -302,17 +348,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (!discountGid) return json({ errors: { general: "Failed to create discount in Shopify" }, success: false, actionType: "create" });
 
-    const metafieldValue = JSON.stringify({ type: discountType, percentage, fixedAmount: fixedValue || 0, remaining_threshold: threshold, total_threshold: threshold });
+    const metafieldValue = JSON.stringify({ type: discountType, percentage, fixedAmount: fixedValue || 0, remaining_threshold: threshold, total_threshold: threshold, discountCategory, specialProducts });
     try {
-      await admin.graphql(SET_METAFIELD_MUTATION, {
-        variables: {
-          metafields: [{ ownerId: discountGid, namespace: "$app", key: "discount_config", type: "json", value: metafieldValue }],
-        }
-      });
+      const mfs: any[] = [
+        { ownerId: discountGid, namespace: "$app", key: "discount_config", type: "json", value: metafieldValue },
+      ];
+      if (paymentType) {
+        mfs.push({ ownerId: discountGid, namespace: "threshold_flow", key: "payment_type", type: "single_line_text_field", value: paymentType });
+      }
+      await admin.graphql(SET_METAFIELD_MUTATION, { variables: { metafields: mfs } });
     } catch {}
 
     await prisma.discountThreshold.create({
-      data: { shop, discountGid, discountCode: code, title, discountType, percentage, fixedValue, totalThreshold: threshold, remainingAmount: threshold, isActive: true, startDate, endDate, version: 0 },
+      data: { shop, discountGid, discountCode: code, title, discountType, percentage, fixedValue, totalThreshold: threshold, remainingAmount: threshold, discountCategory, specialProducts, paymentType: paymentType || null, isActive: true, startDate, endDate, version: 0 },
     });
 
     return json({ success: true, actionType: "create" });
@@ -326,6 +374,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const thresholdStr = formData.get("threshold") as string;
     const startDateStr = formData.get("startDate") as string;
     const endDateStr = formData.get("endDate") as string;
+    const discountCategory = formData.get("discountCategory") as string;
+    const specialProducts = formData.get("specialProducts") as string;
+    const paymentType = (formData.get("paymentType") as string) || "";
     
     const discount = await prisma.discountThreshold.findFirst({ where: { id, shop } });
     if (!discount) return json({ errors: { general: "Discount not found" }, success: false, actionType: "edit" });
@@ -374,7 +425,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (Object.keys(errors).length > 0) return json({ errors, success: false, actionType: "edit" });
 
     const newRemaining = newTotalThreshold - discount.usedAmount;
-    const metafieldValue = JSON.stringify({ type: discountType, percentage, fixedAmount: fixedValue || 0, remaining_threshold: newRemaining, total_threshold: newTotalThreshold });
+    const metafieldValue = JSON.stringify({ type: discountType, percentage, fixedAmount: fixedValue || 0, remaining_threshold: newRemaining, total_threshold: newTotalThreshold, discountCategory, specialProducts });
 
     try {
       await admin.graphql(UPDATE_DISCOUNT_MUTATION, {
@@ -387,18 +438,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         }
       });
-      await admin.graphql(SET_METAFIELD_MUTATION, {
-        variables: {
-          metafields: [{ ownerId: discount.discountGid, namespace: "$app", key: "discount_config", type: "json", value: metafieldValue }],
-        }
-      });
+      const mfs: any[] = [
+        { ownerId: discount.discountGid, namespace: "$app", key: "discount_config", type: "json", value: metafieldValue },
+      ];
+      if (paymentType) {
+        mfs.push({ ownerId: discount.discountGid, namespace: "threshold_flow", key: "payment_type", type: "single_line_text_field", value: paymentType });
+      }
+      await admin.graphql(SET_METAFIELD_MUTATION, { variables: { metafields: mfs } });
     } catch (e) {
       console.error("Error updating discount in Shopify:", e);
     }
 
     await prisma.discountThreshold.update({
       where: { id },
-      data: { title, discountType, percentage, fixedValue, totalThreshold: newTotalThreshold, remainingAmount: newRemaining, startDate, endDate, version: { increment: 1 } },
+      data: { title, discountType, percentage, fixedValue, totalThreshold: newTotalThreshold, remainingAmount: newRemaining, discountCategory, specialProducts, paymentType: paymentType || null, startDate, endDate, version: { increment: 1 } },
     });
 
     return json({ success: true, actionType: "edit" });
@@ -793,7 +846,21 @@ export default function Index() {
 
   return (
     <Frame>
-      <Page fullWidth title="Discount Threshold" primaryAction={{ content: "Create Discount", onAction: () => setView("create", undefined) }} >
+      <Page 
+        fullWidth 
+        title="Discount Threshold" 
+        primaryAction={{ content: "Create Discount", onAction: () => setView("create", undefined) }}
+        secondaryActions={[
+          {
+            content: "Activate Payment Customization",
+            onAction: () => {
+              const formData = new FormData();
+              formData.set("intent", "activatePaymentCustomization");
+              submit(formData, { method: "post" });
+            }
+          }
+        ]}
+      >
         <Layout>
           <Layout.Section>
             <Card padding="0">
@@ -919,7 +986,41 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
   const [percentage, setPercentage] = useState("");
   const [fixedValue, setFixedValue] = useState("");
   const [threshold, setThreshold] = useState("");
+  const [discountCategory, setDiscountCategory] = useState(DISCOUNT_CATEGORIES[0]);
+  const [paymentType, setPaymentType] = useState("");
   const handleCodeChange = useCallback((v: string) => setCode(v.toUpperCase().replace(/[^A-Z0-9_-]/g, "")), []);
+
+  const [specialProducts, setSpecialProducts] = useState<Array<{id: string, productId: string, productTitle: string, category: string}>>([]);
+  const handleAddProductRow = useCallback(() => {
+    setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0] }]);
+  }, []);
+  const handleRemoveProductRow = useCallback((id: string) => {
+    setSpecialProducts((prev) => prev.filter(row => row.id !== id));
+  }, []);
+  const handleProductSelect = useCallback(async (id: string) => {
+    const currentRow = specialProducts.find(r => r.id === id);
+    const selectionIds = currentRow?.productId ? [{ 
+      id: currentRow.productId,
+      variants: currentRow.variants || []
+    }] : [];
+    const selected = await window.shopify.resourcePicker({ 
+      type: 'product', 
+      multiple: false, 
+      action: 'select',
+      selectionIds
+    });
+    if (selected && selected.length > 0) {
+      const selectedVariants = selected[0].variants ? selected[0].variants.map((v: any) => ({ id: v.id })) : [];
+      setSpecialProducts((prev) => prev.map(row => 
+        row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: selectedVariants } : row
+      ));
+    }
+  }, [specialProducts]);
+  const handleCategoryChange = useCallback((id: string, value: string) => {
+    setSpecialProducts((prev) => prev.map(row => 
+      row.id === id ? { ...row, category: value } : row
+    ));
+  }, []);
 
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -983,6 +1084,19 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
                   <Text as="h2" variant="headingMd">Discount Configuration</Text>
                   <FormLayout>
                     <Select label="Discount Type" name="discountType" options={[{label: "Percentage", value: "percentage"}, {label: "Fixed Amount", value: "fixed"}]} value={discountType} onChange={setDiscountType} />
+                    <Select label="Discount Category" name="discountCategory" options={DISCOUNT_CATEGORIES} value={discountCategory} onChange={setDiscountCategory} />
+                    {/* <Select
+                      label="Payment Method (Optional)"
+                      name="paymentType"
+                      options={[
+                        { label: "-- No restriction --", value: "" },
+                        { label: "Credit Card", value: "Credit Card" },
+                        { label: "Net", value: "Net" },
+                      ]}
+                      value={paymentType}
+                      onChange={setPaymentType}
+                      helpText="If selected, restricts checkout to this payment method"
+                    /> */}
                     <FormLayout.Group>
                       {discountType === "percentage" ? (
                         <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={setPercentage} suffix="%" type="number" helpText="Percentage off the order subtotal (1–100)" error={errors.percentage} autoComplete="off" />
@@ -1003,6 +1117,37 @@ function CreateDiscountView({ onCancel, errors, isSubmitting, currencyCode, Date
                   </FormLayout>
                 </BlockStack>
               </Card>
+              <Card>
+                <BlockStack gap="400">
+                  <Text as="h2" variant="headingMd">Special Products Mapping</Text>
+                  {specialProducts.map((row) => (
+                    <InlineStack key={row.id} gap="300" blockAlign="end">
+                      <Box minWidth="300px">
+                        <TextField 
+                          label="Product" 
+                          value={row.productTitle} 
+                          onChange={() => {}} 
+                          autoComplete="off" 
+                          connectedRight={<Button onClick={() => handleProductSelect(row.id)}>Browse</Button>} 
+                        />
+                      </Box>
+                      <Box minWidth="250px">
+                        <Select 
+                          label="Discount Category" 
+                          options={DISCOUNT_CATEGORIES} 
+                          value={row.category} 
+                          onChange={(v) => handleCategoryChange(row.id, v)} 
+                        />
+                      </Box>
+                      <Button tone="critical" onClick={() => handleRemoveProductRow(row.id)}>Remove</Button>
+                    </InlineStack>
+                  ))}
+                  <InlineStack>
+                    <Button onClick={handleAddProductRow}>Add Product Row</Button>
+                  </InlineStack>
+                </BlockStack>
+                <input type="hidden" name="specialProducts" value={JSON.stringify(specialProducts)} />
+              </Card>
               <Divider />
               <InlineStack gap="300" align="end">
                 <Button onClick={onCancel}>Cancel</Button>
@@ -1022,6 +1167,45 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
   const [percentage, setPercentage] = useState(discount.percentage ? String(discount.percentage) : "");
   const [fixedValue, setFixedValue] = useState(discount.fixedValue ? String(discount.fixedValue) : "");
   const [threshold, setThreshold] = useState(String(discount.totalThreshold));
+  const [discountCategory, setDiscountCategory] = useState(discount.discountCategory || DISCOUNT_CATEGORIES[0]);
+  const [paymentType, setPaymentType] = useState(discount.paymentType || "");
+
+  const [specialProducts, setSpecialProducts] = useState<Array<{id: string, productId: string, productTitle: string, category: string}>>(() => {
+    if (discount.specialProducts) {
+      try { return JSON.parse(discount.specialProducts); } catch(e) {}
+    }
+    return [];
+  });
+  const handleAddProductRow = useCallback(() => {
+    setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0] }]);
+  }, []);
+  const handleRemoveProductRow = useCallback((id: string) => {
+    setSpecialProducts((prev) => prev.filter(row => row.id !== id));
+  }, []);
+  const handleProductSelect = useCallback(async (id: string) => {
+    const currentRow = specialProducts.find(r => r.id === id);
+    const selectionIds = currentRow?.productId ? [{ 
+      id: currentRow.productId,
+      variants: currentRow.variants || []
+    }] : [];
+    const selected = await window.shopify.resourcePicker({ 
+      type: 'product', 
+      multiple: false, 
+      action: 'select',
+      selectionIds
+    });
+    if (selected && selected.length > 0) {
+      const selectedVariants = selected[0].variants ? selected[0].variants.map((v: any) => ({ id: v.id })) : [];
+      setSpecialProducts((prev) => prev.map(row => 
+        row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: selectedVariants } : row
+      ));
+    }
+  }, [specialProducts]);
+  const handleCategoryChange = useCallback((id: string, value: string) => {
+    setSpecialProducts((prev) => prev.map(row => 
+      row.id === id ? { ...row, category: value } : row
+    ));
+  }, []);
 
   const [startDate, setStartDate] = useState(() => {
     if (discount.startDate) {
@@ -1116,6 +1300,19 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
                   <Divider />
                   <FormLayout>
                      <Select label="Discount Type" name="discountType" options={[{label: "Percentage", value: "percentage"}, {label: "Fixed Amount", value: "fixed"}]} value={discountType} onChange={setDiscountType} />
+                     <Select label="Discount Category" name="discountCategory" options={DISCOUNT_CATEGORIES} value={discountCategory} onChange={setDiscountCategory} />
+                     {/* <Select
+                      label="Payment Method (Optional)"
+                      name="paymentType"
+                      options={[
+                        { label: "-- No restriction --", value: "" },
+                        { label: "Credit Card", value: "Credit Card" },
+                        { label: "Net", value: "Net" },
+                      ]}
+                      value={paymentType}
+                      onChange={setPaymentType}
+                      helpText="If selected, restricts checkout to this payment method"
+                    /> */}
                     <FormLayout.Group>
                       {discountType === "percentage" ? (
                         <TextField label="Discount Percentage" name="percentage" value={percentage} onChange={setPercentage} suffix="%" type="number" error={errors.percentage} autoComplete="off" />
@@ -1135,6 +1332,37 @@ function EditDiscountView({ discount, onCancel, errors, isSubmitting, currencyCo
                     </FormLayout.Group>
                   </FormLayout>
                 </BlockStack>
+              </Card>    
+              <Card>
+                <BlockStack gap="400">
+                  <Text as="h2" variant="headingMd">Special Products Mapping</Text>
+                  {specialProducts.map((row) => (
+                    <InlineStack key={row.id} gap="300" blockAlign="end">
+                      <Box minWidth="300px">
+                        <TextField 
+                          label="Product" 
+                          value={row.productTitle} 
+                          onChange={() => {}} 
+                          autoComplete="off" 
+                          connectedRight={<Button onClick={() => handleProductSelect(row.id)}>Browse</Button>} 
+                        />
+                      </Box>
+                      <Box minWidth="250px">
+                        <Select 
+                          label="Discount Category" 
+                          options={DISCOUNT_CATEGORIES} 
+                          value={row.category} 
+                          onChange={(v) => handleCategoryChange(row.id, v)} 
+                        />
+                      </Box>
+                      <Button tone="critical" onClick={() => handleRemoveProductRow(row.id)}>Remove</Button>
+                    </InlineStack>
+                  ))}
+                  <InlineStack>
+                    <Button onClick={handleAddProductRow}>Add Product Row</Button>
+                  </InlineStack>
+                </BlockStack>
+                <input type="hidden" name="specialProducts" value={JSON.stringify(specialProducts)} />
               </Card>
               <Divider />
               <InlineStack gap="300" align="end">

@@ -108,6 +108,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               type: freshRecord.discountType,
               remaining_threshold: newRemaining,
               total_threshold: freshRecord.totalThreshold,
+              discountCategory: freshRecord.discountCategory,
+              specialProducts: freshRecord.specialProducts,
             };
 
             if (freshRecord.discountType === "fixed") {
@@ -135,6 +137,136 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         success = true;
         console.log(`[webhook] Threshold deducted for code ${code}: ${actualDeducted} from order ${orderId}`);
+
+        try {
+          const tagsToAdd = new Set<string>();
+          const categoryMetafields = new Set<string>();
+          const productMetafields = new Set<string>();
+          const lineItems = order.line_items || [];
+          let specialProducts: any[] = [];
+          if (discountRecord.specialProducts) {
+            try { specialProducts = JSON.parse(discountRecord.specialProducts); } catch(e){}
+          }
+          
+          const formatTag = (category: string, identifier?: string) => {
+            let tag = identifier ? `${category}_${identifier}` : `${category}`;
+            if (tag.length > 40) {
+              if (identifier) {
+                const allowed = 40 - `${category}_`.length;
+                if (allowed > 0) {
+                  tag = `${category}_${identifier.substring(0, allowed)}`;
+                } else {
+                  tag = `${category}`.substring(0, 40);
+                }
+              } else {
+                tag = tag.substring(0, 40);
+              }
+            }
+            return tag;
+          };
+
+          for (const item of lineItems) {
+            // Check if item was actually discounted
+            const isDiscounted = item.discount_allocations && item.discount_allocations.length > 0;
+            // If we can't determine, we just tag all items to be safe
+            if (!isDiscounted && lineItems.some((i: any) => i.discount_allocations && i.discount_allocations.length > 0)) {
+               continue; 
+            }
+            
+            const pIdStr = String(item.product_id);
+            const vIdStr = String(item.variant_id);
+            const match = specialProducts.find(sp => {
+              if (!sp.productId.endsWith(`/${pIdStr}`)) return false;
+              if (sp.variants && sp.variants.length > 0) {
+                return sp.variants.some((v: any) => v.id.endsWith(`/${vIdStr}`));
+              }
+              return true;
+            });
+            const identifier = item.sku ? item.sku : item.title;
+            
+            if (match && match.category) {
+              const formatted = formatTag(match.category, identifier);
+              tagsToAdd.add(formatted);
+              productMetafields.add(formatted);
+            } else if (discountRecord.discountCategory) {
+              const formatted = formatTag(discountRecord.discountCategory, identifier);
+              tagsToAdd.add(formatted);
+              categoryMetafields.add(discountRecord.discountCategory);
+            }
+          }
+
+          if (tagsToAdd.size === 0 && discountRecord.discountCategory) {
+            const formatted = formatTag(discountRecord.discountCategory);
+            tagsToAdd.add(formatted);
+            categoryMetafields.add(discountRecord.discountCategory);
+          }
+
+          if (discountRecord.paymentType) {
+            tagsToAdd.add(discountRecord.paymentType);
+          }
+
+          if (tagsToAdd.size > 0 || categoryMetafields.size > 0 || productMetafields.size > 0) {
+            const orderGid = order.admin_graphql_api_id || `gid://shopify/Order/${orderId}`;
+            const tagsArray = Array.from(tagsToAdd);
+            
+            if (tagsArray.length > 0) {
+              await admin.graphql(
+                `mutation tagsAdd($id: ID!, $tags: [String!]!) {
+                  tagsAdd(id: $id, tags: $tags) {
+                    userErrors { field message }
+                  }
+                }`,
+                {
+                  variables: {
+                    id: orderGid,
+                    tags: tagsArray
+                  }
+                }
+              );
+            }
+
+            const metafieldsInput = [];
+            
+            if (categoryMetafields.size > 0) {
+              metafieldsInput.push({
+                ownerId: orderGid,
+                namespace: "custom",
+                key: "discount_categories",
+                type: "list.single_line_text_field",
+                value: JSON.stringify(Array.from(categoryMetafields))
+              });
+            }
+
+            if (productMetafields.size > 0) {
+              metafieldsInput.push({
+                ownerId: orderGid,
+                namespace: "custom",
+                key: "discount_products_categories",
+                type: "list.single_line_text_field",
+                value: JSON.stringify(Array.from(productMetafields))
+              });
+            }
+
+            if (metafieldsInput.length > 0) {
+              await admin.graphql(
+                `mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+                  metafieldsSet(metafields: $metafields) {
+                    userErrors { field message }
+                  }
+                }`,
+                {
+                  variables: {
+                    metafields: metafieldsInput
+                  }
+                }
+              );
+            }
+
+            console.log(`[webhook] Added tags [${tagsArray.join(", ")}] and separated metafields to order ${orderId}`);
+          }
+        } catch (tagError) {
+          console.error("[webhook] Failed to tag order:", tagError);
+        }
       } catch (err: any) {
         if (err.message?.includes("Already processed")) {
           // Concurrent webhook delivery — another call already handled this order

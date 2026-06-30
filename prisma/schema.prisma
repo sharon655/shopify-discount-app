@@ -41,6 +41,9 @@ model DiscountThreshold {
   totalThreshold   Float    // Max total discount amount allowed
   usedAmount       Float    @default(0) // Total discount given out so far
   remainingAmount  Float    // Cached: totalThreshold - usedAmount
+  discountCategory String?  // Category for this discount (e.g. Sales Discount)
+  specialProducts  String?  // JSON string storing [{productId, productTitle, category}] mapping
+  paymentType      String?  // Optional: "Credit Card" or "Net" — controls checkout payment visibility
   isActive         Boolean  @default(true)
   startDate        DateTime @default(now())
   endDate          DateTime?
