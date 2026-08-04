@@ -54,17 +54,22 @@ export async function processFreeProductStockWarnings(): Promise<FreeProductStoc
   let resetAlerts = 0;
 
   try {
-    // 1. Retrieve all active discounts having special products
+    const today = new Date();
+    // 1. Retrieve all active and non-expired discounts having special products
     const discounts = await prisma.discountThreshold.findMany({
       where: {
         isActive: true,
         specialProducts: {
           not: null,
         },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: today } },
+        ],
       },
     });
 
-    console.log(`[free-product-stock] Retrieved ${discounts.length} active discounts with special products to evaluate.`);
+    console.log(`[free-product-stock] Retrieved ${discounts.length} active and non-expired discounts with special products to evaluate.`);
 
     // 2. Filter discounts that actually have special products and group by shop
     const shopDiscountsMap = new Map<string, typeof discounts>();

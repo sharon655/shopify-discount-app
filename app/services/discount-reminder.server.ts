@@ -39,18 +39,18 @@ export async function processDiscountReminders(): Promise<DiscountReminderStats>
   let failed = 0;
 
   try {
-    // 1. Retrieve all active discounts with an expiration date
+    const today = new Date();
+    // 1. Retrieve all active and not expired discounts with an expiration date
     const discounts = await prisma.discountThreshold.findMany({
       where: {
         isActive: true,
         endDate: {
-          not: null,
+          gt: today,
         },
       },
     });
 
-    const today = new Date();
-    console.log(`[discount-reminder] Retrieved ${discounts.length} active discounts with expiration dates to evaluate.`);
+    console.log(`[discount-reminder] Retrieved ${discounts.length} active and not expired discounts to evaluate.`);
 
     for (const discount of discounts) {
       checked++;
