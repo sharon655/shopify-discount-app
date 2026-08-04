@@ -1,6 +1,9 @@
+import dns from "node:dns";
 import nodemailer from "nodemailer";
 import { ReminderType } from "@prisma/client";
 import prisma from "../db.server";
+
+dns.setDefaultResultOrder("ipv4first");
 
 export interface SendDiscountReminderArgs {
   discount: {
