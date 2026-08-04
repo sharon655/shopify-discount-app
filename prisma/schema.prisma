@@ -3,73 +3,99 @@ generator client {
 }
 
 datasource db {
-  provider = "postgres"
-  url      = env("DATABASE_URL")
+  provider  = "postgres"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model Session {
-  id            String    @id
-  shop          String    @unique
-  isOnline      Boolean   @default(false)
-  scope         String?
-  accessToken   String
-  planId        Int?
-  accountOwner  Boolean   @default(false)
-  collaborator  Boolean   @default(false)
-  email         String?
-  emailVerified Boolean   @default(false)
-  expires       DateTime?
-  firstName     String?
-  lastName      String?
-  locale        String?
-  state         String?
-  userId        BigInt?
-  onboardingCompleted Boolean @default(false)
+  id                  String    @id
+  shop                String    @unique
+  isOnline            Boolean   @default(false)
+  scope               String?
+  accessToken         String
+  planId              Int?
+  accountOwner        Boolean   @default(false)
+  collaborator        Boolean   @default(false)
+  email               String?
+  emailVerified       Boolean   @default(false)
+  expires             DateTime?
+  firstName           String?
+  lastName            String?
+  locale              String?
+  state               String?
+  userId              BigInt?
+  onboardingCompleted Boolean   @default(false)
 }
 
-// Tracks threshold budget per discount per shop
 model DiscountThreshold {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   shop             String
-  discountGid      String   // Shopify GID e.g. gid://shopify/DiscountCodeApp/12345
+  discountGid      String
   discountCode     String
   title            String
-  discountType     String   @default("percentage") // "percentage" or "fixed"
+  discountType     String    @default("percentage")
   percentage       Float?
   fixedValue       Float?
-  totalThreshold   Float    // Max total discount amount allowed
-  usedAmount       Float    @default(0) // Total discount given out so far
-  remainingAmount  Float    // Cached: totalThreshold - usedAmount
-  discountCategory String?  // Category for this discount (e.g. Sales Discount)
-  specialProducts  String?  // JSON string storing [{productId, productTitle, category}] mapping
-  paymentType      String?  // Optional: "Credit Card" or "Net" — controls checkout payment visibility
-  isActive         Boolean  @default(true)
-  startDate        DateTime @default(now())
+  totalThreshold   Float
+  usedAmount       Float     @default(0)
+  remainingAmount  Float
+  isActive         Boolean   @default(true)
+  startDate        DateTime  @default(now())
   endDate          DateTime?
-  version          Int      @default(0) // Optimistic lock version
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  version          Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  discountCategory String?
+  specialProducts  String?
+  paymentType      String?
+  reminderLogs     DiscountReminderLog[]
 
   @@unique([shop, discountGid])
   @@index([shop, discountCode])
 }
 
-// Tracks which orders have been processed to prevent double-deduction
 model ProcessedOrder {
   id                      String   @id @default(cuid())
   shop                    String
-  orderId                 String   // Shopify order ID
+  orderId                 String
   discountGid             String
-  deducted                Float    // Amount that was deducted for this order
+  deducted                Float
+  createdAt               DateTime @default(now())
+  discountCategory        String?
   discountCode            String?
+  discountProductCategory String?
   discountType            String?
   discountValue           Float?
-  discountCategory        String?
-  discountProductCategory String?
   paymentType             String?
-  createdAt               DateTime @default(now())
 
   @@unique([shop, orderId, discountGid])
 }
 
+model DiscountReminderLog {
+  id             String   @id @default(cuid())
+  discountId     String
+  reminderType   ReminderType
+  sentTo         String
+  sentAt         DateTime @default(now())
+  status         ReminderStatus
+  errorMessage   String?
+
+  discount       DiscountThreshold @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@unique([discountId, reminderType])
+  @@index([discountId])
+  @@index([sentAt])
+}
+
+enum ReminderType {
+  TEN_DAYS
+  ONE_DAY
+  BELOW_THRESHOLD
+  FREE_PRODUCT_OUT_OF_STOCK
+}
+
+enum ReminderStatus {
+  SUCCESS
+  FAILED
+}

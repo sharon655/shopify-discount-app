@@ -9,6 +9,7 @@ import {
   IndexTable, useIndexResourceState, IndexFilters, useSetIndexFiltersMode, Link, Pagination, FooterHelp
 } from "@shopify/polaris";
 import { CalendarIcon, ClipboardIcon, CheckIcon } from "@shopify/polaris-icons";
+import { ReminderType } from "@prisma/client";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 
@@ -361,8 +362,61 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (Object.keys(errors).length > 0) return json({ errors, success: false, actionType: "create" });
 
-    const existing = await prisma.discountThreshold.findFirst({ where: { shop, discountCode: code } });
-    if (existing) return json({ errors: { code: "A discount with this code already exists" }, success: false, actionType: "create" });
+    const now = new Date();
+    const existing = await prisma.discountThreshold.findFirst({
+      where: {
+        shop,
+        discountCode: code,
+        isActive: true,
+        OR: [
+          { endDate: null },
+          { endDate: { gt: now } }
+        ]
+      }
+    });
+    if (existing) return json({ errors: { code: "An active/scheduled discount with this code already exists" }, success: false, actionType: "create" });
+
+    // Rename any old duplicate/expired discounts in Shopify to release the code name
+    const oldDuplicates = await prisma.discountThreshold.findMany({
+      where: {
+        shop,
+        discountCode: code,
+      }
+    });
+
+    for (const dup of oldDuplicates) {
+      try {
+        console.log(`[create] Renaming duplicate discount ${dup.discountGid} in Shopify to free up code name`);
+        await admin.graphql(
+          `mutation discountCodeAppUpdate($id: ID!, $discount: DiscountCodeAppInput!) {
+            discountCodeAppUpdate(id: $id, codeAppDiscount: $discount) {
+              userErrors { field message }
+            }
+          }`,
+          {
+            variables: {
+              id: dup.discountGid,
+              discount: {
+                code: `${code}_EXPIRED_${dup.id.substring(0, 6)}`
+              }
+            }
+          }
+        );
+      } catch (e) {
+        console.error(`Failed to rename old duplicate discount ${dup.discountGid} in Shopify:`, e);
+      }
+    }
+
+    if (oldDuplicates.length > 0) {
+      await prisma.discountThreshold.updateMany({
+        where: {
+          id: { in: oldDuplicates.map(d => d.id) }
+        },
+        data: {
+          isActive: false
+        }
+      });
+    }
 
     let functionId: string | null = null;
     try {
@@ -520,6 +574,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       where: { id },
       data: { title, discountType, percentage, fixedValue, totalThreshold: newTotalThreshold, remainingAmount: newRemaining, discountCategory, specialProducts, paymentType: paymentType || "None", startDate, endDate, version: { increment: 1 } },
     });
+
+    try {
+      const limit = parseFloat(process.env.THRESHOLD_WARNING_LIMIT || "50");
+      if (newRemaining >= limit) {
+        await prisma.discountReminderLog.deleteMany({
+          where: {
+            discountId: id,
+            reminderType: ReminderType.BELOW_THRESHOLD,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Error clearing BELOW_THRESHOLD reminder log:", err);
+    }
+
+    try {
+      if (discount.specialProducts !== specialProducts) {
+        console.log(`[edit-discount] specialProducts changed. Clearing FREE_PRODUCT_OUT_OF_STOCK reminder log for discount ${id}`);
+        await prisma.discountReminderLog.deleteMany({
+          where: {
+            discountId: id,
+            reminderType: ReminderType.FREE_PRODUCT_OUT_OF_STOCK,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Error clearing FREE_PRODUCT_OUT_OF_STOCK reminder log:", err);
+    }
 
     return json({ success: true, actionType: "edit" });
   }
@@ -696,7 +778,19 @@ export default function Index() {
   }));
 
   const filteredDiscounts = discounts.filter((d: any) => {
-    const status = discountStatuses[d.id] || (d.isActive ? 'ACTIVE' : 'INACTIVE');
+    let status = discountStatuses[d.id] || "";
+    if (!status) {
+      const now = new Date();
+      if (d.endDate && new Date(d.endDate) <= now) {
+        status = "EXPIRED";
+      } else if (!d.isActive) {
+        status = "INACTIVE";
+      } else if (new Date(d.startDate) > now) {
+        status = "SCHEDULED";
+      } else {
+        status = "ACTIVE";
+      }
+    }
 
     if (queryValue && !d.title.toLowerCase().includes(queryValue.toLowerCase()) && !d.discountCode.toLowerCase().includes(queryValue.toLowerCase())) {
       return false;
@@ -727,8 +821,20 @@ export default function Index() {
   }, [selectedResources, submit, clearSelection]);
 
   const rowMarkup = paginatedDiscounts.map((d: any, index: number) => {
-    const status = discountStatuses[d.id] || "";
-    const isActive = status === 'ACTIVE' || status === 'SCHEDULED' || (status === "" && d.isActive);
+    let status = discountStatuses[d.id] || "";
+    if (!status) {
+      const now = new Date();
+      if (d.endDate && new Date(d.endDate) <= now) {
+        status = "EXPIRED";
+      } else if (!d.isActive) {
+        status = "INACTIVE";
+      } else if (new Date(d.startDate) > now) {
+        status = "SCHEDULED";
+      } else {
+        status = "ACTIVE";
+      }
+    }
+    const isActive = status === 'ACTIVE' || status === 'SCHEDULED';
     const startDateLabel = d.startDate ? new Date(d.startDate).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' }) : "-";
     const endDateLabel = d.endDate ? new Date(d.endDate).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' }) : " ";
     const activeDatesLabel = d.endDate ? `${startDateLabel} — ${endDateLabel}` : startDateLabel;
@@ -1120,6 +1226,8 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
     }
   }, []);
 
+  const [toastActive, setToastActive] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [specialProducts, setSpecialProducts] = useState<Array<{ id: string, productId: string, productTitle: string, category: string, quantity: number, variants?: any[] }>>([]);
   const handleAddProductRow = useCallback(() => {
     setSpecialProducts((prev) => [...prev, { id: Math.random().toString(), productId: "", productTitle: "", category: DISCOUNT_CATEGORIES[0], quantity: 1 }]);
@@ -1137,12 +1245,76 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
       type: 'product',
       multiple: false,
       action: 'select',
-      selectionIds
+      selectionIds,
+      filter: {
+        query: "inventory_total:>0"
+      }
     });
     if (selected && selected.length > 0) {
-      const selectedVariants = selected[0].variants ? selected[0].variants.map((v: any) => ({ id: v.id })) : [];
+      const productId = selected[0].id;
+      let inStockVariantIds: string[] = [];
+      let apiSucceeded = false;
+      try {
+        const response = await fetch(`/app/api/variants-inventory?productId=${encodeURIComponent(productId)}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result && result.inStockVariants) {
+            inStockVariantIds = result.inStockVariants;
+            apiSucceeded = true;
+          } else if (result && result.error) {
+            console.error("API variants-inventory error:", result.error);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch variant inventories:", e);
+      }
+
+      // Convert GIDs to numeric IDs for robust matching
+      const getNumericId = (gid: string) => {
+        if (!gid) return "";
+        const parts = gid.split("/");
+        return parts[parts.length - 1];
+      };
+
+      const originalVariantsCount = selected[0].variants ? selected[0].variants.length : 0;
+
+      // Filter variants: only keep ones that match the in-stock numeric IDs returned by backend
+      const selectedVariants = selected[0].variants
+        ? selected[0].variants
+            .filter((v: any) => {
+              const vNum = getNumericId(v.id);
+              return inStockVariantIds.some((inStockId) => getNumericId(inStockId) === vNum);
+            })
+            .map((v: any) => ({ id: v.id }))
+        : [];
+
+      // Fallback: If the API failed to return any in-stock variants, but the picker returned some,
+      // keep the picker's selection to avoid empty array falling back to "all variants" in the checkout discount webhook.
+      const finalVariants = !apiSucceeded && selectedVariants.length === 0 && selected[0].variants && selected[0].variants.length > 0
+        ? selected[0].variants.map((v: any) => ({ id: v.id }))
+        : selectedVariants;
+
+      if (apiSucceeded && finalVariants.length === 0) {
+        setToastMessage(`"${selected[0].title}" has no variants in stock and cannot be added.`);
+        setToastActive(true);
+        setSpecialProducts((prev) => prev.map(row =>
+          row.id === id ? { ...row, productId: "", productTitle: "", variants: [] } : row
+        ));
+        setErrors((prev: any) => ({
+          ...prev,
+          [`specialProduct_${id}`]: "This product is completely out of stock"
+        }));
+        return;
+      }
+
+      const filteredCount = originalVariantsCount - finalVariants.length;
+      if (filteredCount > 0) {
+        setToastMessage(`Removed ${filteredCount} out-of-stock variant(s) of "${selected[0].title}".`);
+        setToastActive(true);
+      }
+
       setSpecialProducts((prev) => prev.map(row =>
-        row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: selectedVariants } : row
+        row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: finalVariants } : row
       ));
       setErrors((prev: any) => {
         const next = { ...prev };
@@ -1171,7 +1343,7 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
   });
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
+    d.setMonth(d.getMonth() + 1);
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yyyy = d.getFullYear();
@@ -1194,7 +1366,7 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
       if (parts.length === 3) {
         const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
         if (!isNaN(d.getTime())) {
-          d.setFullYear(d.getFullYear() + 1);
+          d.setMonth(d.getMonth() + 1);
           const dd = String(d.getDate()).padStart(2, '0');
           const mm = String(d.getMonth() + 1).padStart(2, '0');
           const yyyy = d.getFullYear();
@@ -1217,7 +1389,8 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
   }, []);
 
   return (
-    <Page title="Create Discount Code" backAction={{ content: "Discount Codes", onAction: onCancel }}>
+    <Frame>
+      <Page title="Create Discount Code" backAction={{ content: "Discount Codes", onAction: onCancel }}>
       <Layout>
         {errors.general && <Layout.Section><Banner tone="critical" title="Error"><p>{errors.general}</p></Banner></Layout.Section>}
         <Layout.Section>
@@ -1276,7 +1449,7 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
                     </FormLayout.Group>
                     <FormLayout.Group>
                       <DateSelectionPicker label="Start Date" dateStr={startDate} onChange={handleStartDateChange} error={errors.startDate} />
-                      <DateSelectionPicker label="End Date" dateStr={endDate} onChange={handleEndDateChange} helpText="Defaults to 1 year after start date" error={errors.endDate} />
+                      <DateSelectionPicker label="End Date" dateStr={endDate} onChange={handleEndDateChange} helpText="Defaults to 1 month after start date" error={errors.endDate} />
                     </FormLayout.Group>
                   </FormLayout>
                 </BlockStack>
@@ -1334,7 +1507,9 @@ function CreateDiscountView({ onCancel, errors: propErrors, isSubmitting, curren
           </Form>
         </Layout.Section>
       </Layout>
+      {toastActive && <Toast content={toastMessage} onDismiss={() => setToastActive(false)} />}
     </Page>
+    </Frame>
   );
 }
 
@@ -1399,6 +1574,8 @@ function EditDiscountView({ discount, onCancel, errors: propErrors, isSubmitting
     }
   }, []);
 
+  const [toastActive, setToastActive] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [specialProducts, setSpecialProducts] = useState<Array<{ id: string, productId: string, productTitle: string, category: string, quantity: number, variants?: any[] }>>(() => {
     if (discount.specialProducts) {
       try {
@@ -1427,12 +1604,76 @@ function EditDiscountView({ discount, onCancel, errors: propErrors, isSubmitting
       type: 'product',
       multiple: false,
       action: 'select',
-      selectionIds
+      selectionIds,
+      filter: {
+        query: "inventory_total:>0"
+      }
     });
     if (selected && selected.length > 0) {
-      const selectedVariants = selected[0].variants ? selected[0].variants.map((v: any) => ({ id: v.id })) : [];
+      const productId = selected[0].id;
+      let inStockVariantIds: string[] = [];
+      let apiSucceeded = false;
+      try {
+        const response = await fetch(`/app/api/variants-inventory?productId=${encodeURIComponent(productId)}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result && result.inStockVariants) {
+            inStockVariantIds = result.inStockVariants;
+            apiSucceeded = true;
+          } else if (result && result.error) {
+            console.error("API variants-inventory error:", result.error);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch variant inventories:", e);
+      }
+
+      // Convert GIDs to numeric IDs for robust matching
+      const getNumericId = (gid: string) => {
+        if (!gid) return "";
+        const parts = gid.split("/");
+        return parts[parts.length - 1];
+      };
+
+      const originalVariantsCount = selected[0].variants ? selected[0].variants.length : 0;
+
+      // Filter variants: only keep ones that match the in-stock numeric IDs returned by backend
+      const selectedVariants = selected[0].variants
+        ? selected[0].variants
+            .filter((v: any) => {
+              const vNum = getNumericId(v.id);
+              return inStockVariantIds.some((inStockId) => getNumericId(inStockId) === vNum);
+            })
+            .map((v: any) => ({ id: v.id }))
+        : [];
+
+      // Fallback: If the API failed to return any in-stock variants, but the picker returned some,
+      // keep the picker's selection to avoid empty array falling back to "all variants" in the checkout discount webhook.
+      const finalVariants = !apiSucceeded && selectedVariants.length === 0 && selected[0].variants && selected[0].variants.length > 0
+        ? selected[0].variants.map((v: any) => ({ id: v.id }))
+        : selectedVariants;
+
+      if (apiSucceeded && finalVariants.length === 0) {
+        setToastMessage(`"${selected[0].title}" has no variants in stock and cannot be added.`);
+        setToastActive(true);
+        setSpecialProducts((prev) => prev.map(row =>
+          row.id === id ? { ...row, productId: "", productTitle: "", variants: [] } : row
+        ));
+        setErrors((prev: any) => ({
+          ...prev,
+          [`specialProduct_${id}`]: "This product is completely out of stock"
+        }));
+        return;
+      }
+
+      const filteredCount = originalVariantsCount - finalVariants.length;
+      if (filteredCount > 0) {
+        setToastMessage(`Removed ${filteredCount} out-of-stock variant(s) of "${selected[0].title}".`);
+        setToastActive(true);
+      }
+
       setSpecialProducts((prev) => prev.map(row =>
-        row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: selectedVariants } : row
+        row.id === id ? { ...row, productId: selected[0].id, productTitle: selected[0].title, variants: finalVariants } : row
       ));
       setErrors((prev: any) => {
         const next = { ...prev };
@@ -1489,7 +1730,7 @@ function EditDiscountView({ discount, onCancel, errors: propErrors, isSubmitting
       if (parts.length === 3) {
         const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
         if (!isNaN(d.getTime())) {
-          d.setFullYear(d.getFullYear() + 1);
+          d.setMonth(d.getMonth() + 1);
           const dd = String(d.getDate()).padStart(2, '0');
           const mm = String(d.getMonth() + 1).padStart(2, '0');
           const yyyy = d.getFullYear();
@@ -1512,7 +1753,8 @@ function EditDiscountView({ discount, onCancel, errors: propErrors, isSubmitting
   }, []);
 
   return (
-    <Page title="Edit Discount" backAction={{ content: "Discount Codes", onAction: onCancel }}>
+    <Frame>
+      <Page title="Edit Discount" backAction={{ content: "Discount Codes", onAction: onCancel }}>
       <Layout>
         {errors.general && <Layout.Section><Banner tone="critical" title="Error"><p>{errors.general}</p></Banner></Layout.Section>}
         <Layout.Section>
@@ -1655,6 +1897,8 @@ function EditDiscountView({ discount, onCancel, errors: propErrors, isSubmitting
           </Form>
         </Layout.Section>
       </Layout>
+      {toastActive && <Toast content={toastMessage} onDismiss={() => setToastActive(false)} />}
     </Page>
+    </Frame>
   );
 }

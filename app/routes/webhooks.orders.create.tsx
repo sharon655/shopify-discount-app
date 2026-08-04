@@ -53,9 +53,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       continue;
     }
 
+    const now = new Date();
     // Find our discount record
     const discountRecord = await prisma.discountThreshold.findFirst({
-      where: { shop, discountCode: code, isActive: true },
+      where: {
+        shop,
+        discountCode: code,
+        isActive: true,
+        startDate: { lte: now },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: now } }
+        ]
+      },
+      orderBy: { createdAt: "desc" }
     });
 
     if (!discountRecord) {
@@ -150,7 +161,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         await prisma.$transaction(async (tx) => {
           // Re-read inside transaction to get latest version
           const freshRecord = await tx.discountThreshold.findFirst({
-            where: { shop, discountCode: code, isActive: true },
+            where: {
+              shop,
+              discountCode: code,
+              isActive: true,
+              startDate: { lte: now },
+              OR: [
+                { endDate: null },
+                { endDate: { gte: now } }
+              ]
+            },
+            orderBy: { createdAt: "desc" }
           });
 
           if (!freshRecord) throw new Error("Discount not found");
@@ -350,7 +371,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         try {
           console.log(`[webhook] Starting post-tagging discount update for code: "${code}"`);
           const freshRecord = await prisma.discountThreshold.findFirst({
-            where: { shop, discountCode: code, isActive: true },
+            where: {
+              shop,
+              discountCode: code,
+              isActive: true,
+              startDate: { lte: now },
+              OR: [
+                { endDate: null },
+                { endDate: { gte: now } }
+              ]
+            },
+            orderBy: { createdAt: "desc" }
           });
 
           if (freshRecord) {

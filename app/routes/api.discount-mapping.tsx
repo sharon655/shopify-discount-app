@@ -20,12 +20,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   try {
+    const now = new Date();
     const discount = await prisma.discountThreshold.findFirst({
       where: { 
         shop, 
         discountCode: code, 
-        isActive: true 
+        isActive: true,
+        startDate: { lte: now },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: now } }
+        ]
       },
+      orderBy: { createdAt: "desc" }
     });
 
     let specialProducts = [];
