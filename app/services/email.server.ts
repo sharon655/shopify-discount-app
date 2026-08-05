@@ -1,5 +1,5 @@
 import dns from "node:dns";
-import nodemailer from "nodemailer";
+import { BrevoClient } from "@getbrevo/brevo";
 import { ReminderType } from "@prisma/client";
 import prisma from "../db.server";
 
@@ -88,28 +88,22 @@ export async function sendDiscountExpirationReminder({
     </div>
   `;
 
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "noreply@shopify-discount-app.com";
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL || process.env.SMTP_FROM || "noreply@shopify-discount-app.com";
+  const senderName = process.env.SENDER_NAME || "Shopify Discount App";
 
-  if (host && port && user && pass) {
-    const transporter = nodemailer.createTransport({
-      host,
-      port: parseInt(port, 10),
-      secure: parseInt(port, 10) === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
+  if (apiKey) {
+    const client = new BrevoClient({ apiKey });
+    const toEmails = sentTo.split(",").map((email) => ({ email: email.trim() }));
 
-    await transporter.sendMail({
-      from,
-      to: sentTo,
+    await client.transactionalEmails.sendTransacEmail({
       subject,
-      html,
+      sender: {
+        email: senderEmail,
+        name: senderName,
+      },
+      to: toEmails,
+      htmlContent: html,
     });
   } else {
     // Log the simulated email details to console
@@ -198,28 +192,22 @@ export async function sendDiscountThresholdWarning({
     </div>
   `;
 
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "noreply@shopify-discount-app.com";
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL || process.env.SMTP_FROM || "noreply@shopify-discount-app.com";
+  const senderName = process.env.SENDER_NAME || "Shopify Discount App";
 
-  if (host && port && user && pass) {
-    const transporter = nodemailer.createTransport({
-      host,
-      port: parseInt(port, 10),
-      secure: parseInt(port, 10) === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
+  if (apiKey) {
+    const client = new BrevoClient({ apiKey });
+    const toEmails = sentTo.split(",").map((email) => ({ email: email.trim() }));
 
-    await transporter.sendMail({
-      from,
-      to: sentTo,
+    await client.transactionalEmails.sendTransacEmail({
       subject,
-      html,
+      sender: {
+        email: senderEmail,
+        name: senderName,
+      },
+      to: toEmails,
+      htmlContent: html,
     });
   } else {
     // Log the simulated email details to console
@@ -308,28 +296,22 @@ export async function sendFreeProductOutOfStockEmail({
     </div>
   `;
 
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "noreply@shopify-discount-app.com";
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL || process.env.SMTP_FROM || "noreply@shopify-discount-app.com";
+  const senderName = process.env.SENDER_NAME || "Shopify Discount App";
 
-  if (host && port && user && pass) {
-    const transporter = nodemailer.createTransport({
-      host,
-      port: parseInt(port, 10),
-      secure: parseInt(port, 10) === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
+  if (apiKey) {
+    const client = new BrevoClient({ apiKey });
+    const toEmails = sentTo.split(",").map((email) => ({ email: email.trim() }));
 
-    await transporter.sendMail({
-      from,
-      to: sentTo,
+    await client.transactionalEmails.sendTransacEmail({
       subject,
-      html,
+      sender: {
+        email: senderEmail,
+        name: senderName,
+      },
+      to: toEmails,
+      htmlContent: html,
     });
   } else {
     // Log the simulated email details to console
