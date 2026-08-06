@@ -530,6 +530,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       errors.endDate = "End date must be after the start date";
     }
 
+    // Prevent un-expiring a discount if there is already an active/scheduled discount with the same code
+    const now = new Date();
+    const wasExpired = discount.endDate !== null && new Date(discount.endDate) <= now;
+    const willBeUnexpired = endDate === null || endDate > now;
+
+    if (wasExpired && willBeUnexpired) {
+      const existingActive = await prisma.discountThreshold.findFirst({
+        where: {
+          shop,
+          discountCode: discount.discountCode,
+          id: { not: discount.id },
+          isActive: true,
+          OR: [
+            { endDate: null },
+            { endDate: { gt: now } }
+          ]
+        }
+      });
+      if (existingActive) {
+        errors.endDate = "An active/scheduled discount with this code already exists";
+      }
+    }
+
     let specialProductsParsed: any[] = [];
     if (specialProducts) {
       try {
@@ -707,7 +730,20 @@ export default function Index() {
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  const errors = (actionData as any)?.errors || {};
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (actionData && !actionData.success && actionData.errors) {
+      setErrors(actionData.errors);
+    } else {
+      setErrors({});
+    }
+  }, [actionData]);
+
+  // Clear errors when view or selectedDiscountId changes (e.g., editing another discount)
+  useEffect(() => {
+    setErrors({});
+  }, [view, selectedDiscountId]);
 
   useEffect(() => {
     if (actionData?.success) {
@@ -973,7 +1009,7 @@ export default function Index() {
         preventCloseOnChildOverlayClick
         onClose={() => setPopoverActive(false)}
         activator={
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-start", alignItems: "stretch", width: "100%" }}>
             <TextField
               label={label}
               value={displayValue}
