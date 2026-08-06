@@ -17,7 +17,7 @@ export function initCron() {
   console.log(`[+] [${new Date().toISOString()}] Initializing in-process cron scheduler in America/New_York timezone...`);
 
   // Hourly job: runs at minute 0 of every hour
-  cron.schedule("0 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log(`[+] [${new Date().toISOString()}] Running hourly job: free product stock warnings...`);
     try {
       const stats = await processFreeProductStockWarnings();
@@ -30,7 +30,7 @@ export function initCron() {
   });
 
   // Daily jobs: runs at 9:00 AM every day
-  cron.schedule("0 9 * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log(`[+] [${new Date().toISOString()}] Running daily jobs...`);
 
     // 1. Discount Reminders
