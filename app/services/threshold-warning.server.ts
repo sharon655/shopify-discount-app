@@ -22,14 +22,17 @@ export async function processThresholdWarnings(): Promise<ThresholdWarningStats>
   let failed = 0;
 
   try {
-    const limit = parseFloat(process.env.THRESHOLD_WARNING_LIMIT || "50");
+    const limit = parseFloat(process.env.THRESHOLD_WARNING_LIMIT || "500");
     console.log(`[threshold-warning] Configured warning threshold limit: ${limit}`);
 
     const today = new Date();
-    // Retrieve all active and non-expired discounts
+    // Retrieve active, non-expired discounts where totalThreshold is greater than the warning limit
     const discounts = await prisma.discountThreshold.findMany({
       where: {
         isActive: true,
+        totalThreshold: {
+          gt: limit,
+        },
         OR: [
           { endDate: null },
           { endDate: { gte: today } },
