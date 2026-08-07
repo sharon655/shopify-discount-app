@@ -108,8 +108,8 @@ export function cartLinesDiscountsGenerateRun(input) {
     .filter(c => c.isFreeGift)
     .reduce((sum, c) => sum + c.calculatedDiscount, 0);
 
-  // Remaining budget for regular discounts
-  const budgetForRegularDiscounts = Math.max(0, remainingThreshold - freeGiftDiscount);
+  // Remaining budget for regular discounts (free gift is always 100% free and does not consume budget)
+  const budgetForRegularDiscounts = remainingThreshold;
 
   const regularCandidates = candidates.filter(c => !c.isFreeGift);
   const totalRegularDiscount = regularCandidates.reduce((sum, c) => sum + c.calculatedDiscount, 0);
